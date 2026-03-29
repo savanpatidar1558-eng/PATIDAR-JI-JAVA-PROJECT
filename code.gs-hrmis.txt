@@ -1,0 +1,1876 @@
+// =========================================================================
+// माँ अंबिका डायग्नोस्टिक सेंटर - HRMIS (SUPER MASTER CODE)
+// डेवलपर: SAVAN PATIDAR
+// =========================================================================
+
+function grantDrivePermission() { 
+  var testFolder = DriveApp.createFolder("Test_Permission"); 
+  testFolder.setTrashed(true); 
+}
+
+function doGet(e) {
+  var output;
+  if (e.parameter && e.parameter.page == 'director') { output = HtmlService.createHtmlOutputFromFile('director').setTitle("Director Dashboard"); } 
+  else if (e.parameter && e.parameter.page == 'agreement') { 
+      var template = HtmlService.createTemplateFromFile('agreement'); 
+      template.staffEmail = e.parameter.email || ""; 
+      output = template.evaluate().setTitle("Digital Agreement"); 
+  } 
+  else if (e.parameter && e.parameter.page == 'staff') { output = HtmlService.createHtmlOutputFromFile('staff').setTitle("Staff Attendance"); } 
+  else if (e.parameter && e.parameter.page == 'superadmin') { output = HtmlService.createHtmlOutputFromFile('superadmin').setTitle("Super Admin Dashboard"); } 
+  else { output = HtmlService.createHtmlOutputFromFile('home').setTitle("Maa Ambika HRMIS"); }
+  
+  output.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no');
+  return output;
+}
+
+function getScriptUrl() { 
+  return ScriptApp.getService().getUrl(); 
+}
+
+function getActiveStaffList() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Staff_DB"); 
+  if(!sheet) return [];
+  
+  var data = sheet.getDataRange().getValues(); 
+  var activeStaff = [];
+  
+  for(var i=1; i<data.length; i++) { 
+      if(data[i][8] && data[i][8].toString().includes("Active")) {
+          activeStaff.push(data[i][1]); 
+      }
+  } 
+  return activeStaff;
+}
+
+function getTodayStats() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var sheet = ss.getSheetByName("Attendance"); 
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  var todayStr = new Date().toLocaleDateString('en-IN'); 
+  var activeStaff = [];
+  
+  if(staffSheet) { 
+      var sData = staffSheet.getDataRange().getValues(); 
+      for(var i=1; i<sData.length; i++) { 
+          if(sData[i][8] && sData[i][8].toString().includes("Active")) {
+              activeStaff.push(sData[i][1]); 
+          }
+      } 
+  }
+  
+  var pCount = 0; 
+  var lCount = 0; 
+  var aCount = 0; 
+  var details = []; 
+  var presentNames = [];
+  
+  if(sheet) {
+      var data = sheet.getDataRange().getDisplayValues(); 
+      for(var i=data.length-1; i>0; i--) {
+          if(data[i][0] == todayStr) {
+              var name = data[i][2]; 
+              var status = data[i][7].toString();
+              
+              if(presentNames.indexOf(name) === -1) { 
+                  presentNames.push(name); 
+                  pCount++; 
+                  if(status.includes("Late") || status.includes("Half Day")) {
+                      lCount++; 
+                  }
+                  details.push({ name: name, inTime: data[i][3], status: status }); 
+              }
+          }
+      }
+  }
+  
+  activeStaff.forEach(function(staffName) { 
+      if(presentNames.indexOf(staffName) === -1) { 
+          details.push({ name: staffName, inTime: "--:--", status: "Absent ❌" }); 
+          aCount++; 
+      } 
+  });
+  
+  return { present: pCount, late: lCount, absent: aCount, list: details };
+}
+
+function saveNotice(message) { 
+  PropertiesService.getScriptProperties().setProperty('MAA_AMBIKA_NOTICE', message); 
+  return "✅ नोटिस पब्लिश हो गया!"; 
+}
+
+function getNotice() { 
+  return PropertiesService.getScriptProperties().getProperty('MAA_AMBIKA_NOTICE') || ""; 
+}
+
+// 📊 गूगल शीट के अंदर लाइव डैशबोर्ड अपडेट करने का फंक्शन
+function updateSheetDashboard() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var dash = ss.getSheetByName("📊 MAIN DASHBOARD");
+    
+    if(!dash) {
+      dash = ss.insertSheet("📊 MAIN DASHBOARD", 0);
+      dash.getRange("A1:E20").setBackground("#f8f9fa");
+      dash.getRange("B2:D3").merge().setValue("👑 माँ अंबिका डायग्नोस्टिक सेंटर - लाइव डैशबोर्ड").setBackground("#005A9C").setFontColor("white").setFontSize(22).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+      dash.setRowHeight(2, 35); dash.setRowHeight(3, 35);
+      dash.setColumnWidth(2, 250); dash.setColumnWidth(3, 200);
+    }
+    
+    var staffSheet = ss.getSheetByName("Staff_DB");
+    var totalStaff = 0;
+    if(staffSheet) {
+      var sData = staffSheet.getDataRange().getValues();
+      for(var i=1; i<sData.length; i++) { 
+        if(sData[i][8] && sData[i][8].toString().includes("Active")) totalStaff++; 
+      }
+    }
+
+    var attSheet = ss.getSheetByName("Attendance");
+    var todayStr = new Date().toLocaleDateString('en-IN');
+    var presentToday = 0;
+    
+    if(attSheet) {
+      var aData = attSheet.getDataRange().getDisplayValues();
+      var pNames = [];
+      for(var i=aData.length-1; i>0; i--) {
+        if(aData[i][0] == todayStr && pNames.indexOf(aData[i][2]) === -1) {
+          pNames.push(aData[i][2]);
+          if(aData[i][7].indexOf("Absent") === -1) presentToday++;
+        }
+      }
+    }
+
+    dash.getRange("B5").setValue("👥 कुल एक्टिव स्टाफ:").setFontWeight("bold").setFontSize(16);
+    dash.getRange("C5").setValue(totalStaff).setFontWeight("bold").setFontSize(22).setFontColor("#2980b9").setHorizontalAlignment("center");
+
+    dash.getRange("B7").setValue("📅 आज उपस्थित स्टाफ:").setFontWeight("bold").setFontSize(16);
+    dash.getRange("C7").setValue(presentToday + " / " + totalStaff).setFontWeight("bold").setFontSize(22).setFontColor("#27ae60").setHorizontalAlignment("center");
+
+    dash.getRange("B9").setValue("🕒 लास्ट अपडेट (Live):").setFontWeight("bold").setFontSize(14);
+    dash.getRange("C9").setValue(new Date().toLocaleString('en-IN')).setFontColor("#e74c3c").setHorizontalAlignment("center");
+
+    dash.getRange("B5:C9").setBorder(true,true,true,true,false,true, "#bdc3c7", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  } catch(e) {}
+}
+
+function processAttendance(staffName, punchType, locationStatus, imageData) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var sheet = ss.getSheetByName("Attendance");
+  
+  // 🌟 3D और इमोजी हेडिंग
+  if (!sheet) {
+    sheet = ss.insertSheet("Attendance");
+    var attHeaders = ["📅 Date", "📆 Day", "👤 Staff Name", "🕒 Punch In Time", "🚪 Punch Out Time", "📍 Location Status", "📸 Selfie", "📌 Status"];
+    sheet.getRange(1, 1, 1, attHeaders.length)
+         .setValues([attHeaders])
+         .setBackground("#2c3e50")
+         .setFontColor("#f1c40f")
+         .setFontWeight("bold")
+         .setFontSize(13)
+         .setHorizontalAlignment("center")
+         .setVerticalAlignment("middle");
+    sheet.setRowHeight(1, 40);
+    sheet.setFrozenRows(1);
+  }
+  
+  var now = new Date(); 
+  var timeString = now.toLocaleTimeString('en-IN', { hour12: true }); 
+  var dateString = now.toLocaleDateString('en-IN'); 
+  var dayName = now.toLocaleDateString('hi-IN', { weekday: 'long' }); 
+  var hour = now.getHours(); 
+  var minutes = now.getMinutes(); 
+  var status = "Present ✅"; 
+  var isSunday = (now.getDay() === 0);
+  
+  var photoFormula = "No Photo";
+  if (imageData && imageData.indexOf("data:image") === 0) {
+    try {
+      var safeDate = dateString.replace(/\//g, '-'); 
+      var safeTime = timeString.replace(/:/g, '-').replace(/ /g, '_');
+      var blob = Utilities.newBlob(Utilities.base64Decode(imageData.split(',')[1]), 'image/jpeg', staffName + '_' + safeDate + '_' + safeTime + '.jpg');
+      
+      var folders = DriveApp.getFoldersByName("Maa_Ambika_Selfies"); 
+      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Maa_Ambika_Selfies");
+      var file = folder.createFile(blob); 
+      
+      try { 
+        folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); 
+      } catch(e) {}
+      
+      photoFormula = '=IMAGE("https://drive.google.com/uc?export=view&id=' + file.getId() + '", 1)'; 
+    } catch(e) { 
+      photoFormula = "Error: " + e.message; 
+    }
+  }
+
+  var staffEmail = "";
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  
+  if(staffSheet) {
+      var sData = staffSheet.getDataRange().getValues();
+      for(var k=1; k<sData.length; k++) { 
+          if(sData[k][1] == staffName) { 
+              staffEmail = sData[k][6]; 
+              break; 
+          } 
+      }
+  }
+
+  if (punchType === "Punch In") {
+    if (hour > 10 || (hour === 10 && minutes > 5)) { 
+        var lateCount = checkMonthlyLateCount(staffName, now.getMonth(), now.getFullYear()); 
+        status = (lateCount < 2) ? "Late Warning ⚠️" : "Half Day ❌"; 
+    }
+    
+    sheet.appendRow([dateString, dayName, staffName, timeString, "अभी काम पर हैं", locationStatus, photoFormula, status]);
+    sheet.getRange(sheet.getLastRow(), 1, 1, 8).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    
+    updatePersonalSheet(staffName, dateString, timeString, "", status);
+    updateSheetDashboard(); // डैशबोर्ड अपडेट करें
+    
+    if(staffEmail) {
+        var inHtml = '<div style="font-family: Arial; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;"><h2 style="color: #27ae60; text-align: center; margin-top:0;">✅ Punch IN Successful</h2><p>नमस्कार <b>' + staffName + '</b>,</p><p>आपकी आज की हाज़िरी (Punch IN) सफलतापूर्वक दर्ज़ हो गई है।</p><div style="background: #e8f8f5; padding: 15px; border-left: 5px solid #27ae60; border-radius: 5px;"><b>🕒 इन टाइम (In Time):</b> ' + timeString + '<br><br><b>📅 दिनांक:</b> ' + dateString + '<br><br><b>📌 स्टेटस:</b> <span style="color:#27ae60; font-weight:bold;">' + status + '</span></div><p style="font-size: 12px; color: #7f8c8d; text-align: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">HRMIS PRO - Maa Ambika Diagnostic Centre</p></div>';
+        try { MailApp.sendEmail({to: staffEmail, subject: "✅ Punch IN Confirmation - Maa Ambika", htmlBody: inHtml}); } catch(e){}
+    }
+    return "Success: हाजिरी और फोटो दर्ज हो गई है!";
+  } 
+  else if (punchType === "Punch Out") {
+    var lastRow = sheet.getLastRow(); 
+    if(lastRow < 2) return "Error: आज का रिकॉर्ड नहीं मिला!";
+    
+    var data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getDisplayValues();
+    
+    for (var i = data.length - 1; i > 0; i--) {
+      if (data[i][0] == dateString && data[i][2] == staffName) {
+        var finalStatus = data[i][7]; 
+        
+        if(isSunday && !finalStatus.includes("Sunday")) finalStatus += " (Sunday)";
+        
+        sheet.getRange(i + 1, 8).setValue(finalStatus); 
+        sheet.getRange(i + 1, 5).setValue(timeString); 
+        
+        updatePersonalSheet(staffName, dateString, data[i][3], timeString, finalStatus);
+        
+        if(staffEmail) {
+            var outHtml = '<div style="font-family: Arial; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;"><h2 style="color: #e74c3c; text-align: center; margin-top:0;">🚪 Punch OUT Successful</h2><p>नमस्कार <b>' + staffName + '</b>,</p><p>आपका आज का प्रस्थान (Punch OUT) सफलतापूर्वक दर्ज़ हो गया है।</p><div style="background: #fdedec; padding: 15px; border-left: 5px solid #e74c3c; border-radius: 5px;"><b>🕒 आउट टाइम (Out Time):</b> ' + timeString + '<br><br><b>📅 दिनांक:</b> ' + dateString + '<br><br><b>📌 फाइनल स्टेटस:</b> <span style="color:#c0392b; font-weight:bold;">' + finalStatus + '</span></div><p style="color: #2980b9; font-weight: bold; text-align: center; margin-top: 15px;">आज के बेहतरीन कार्य के लिए धन्यवाद! कल मिलते हैं। 😊</p><p style="font-size: 12px; color: #7f8c8d; text-align: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">HRMIS PRO - Maa Ambika Diagnostic Centre</p></div>';
+            try { MailApp.sendEmail({to: staffEmail, subject: "🚪 Punch OUT Confirmation - Maa Ambika", htmlBody: outHtml}); } catch(e){}
+        }
+        return "Success: आपका प्रस्थान दर्ज हो गया है।";
+      }
+    }
+    return "Error: आज का Punch In नहीं मिला!";
+  }
+}
+
+function updatePersonalSheet(staffName, dateStr, punchIn, punchOut, status) {
+   var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+   var pSheet = ss.getSheetByName(staffName);
+   
+   if(!pSheet) {
+       pSheet = ss.insertSheet(staffName);
+       var pHeaders = ["📅 Date", "🕒 Punch In", "🚪 Punch Out", "📌 Status", "💰 Daily Earned (₹)"];
+       pSheet.getRange(1, 1, 1, pHeaders.length)
+             .setValues([pHeaders])
+             .setBackground("#2c3e50")
+             .setFontColor("#f1c40f")
+             .setFontWeight("bold")
+             .setFontSize(13)
+             .setHorizontalAlignment("center")
+             .setVerticalAlignment("middle");
+       pSheet.setRowHeight(1, 40);
+       pSheet.setFrozenRows(1);
+   }
+   
+   var dbSheet = ss.getSheetByName("Staff_DB"); 
+   var fixedSalary = 0;
+   if(dbSheet) { 
+       var db = dbSheet.getDataRange().getValues(); 
+       for(var i=1; i<db.length; i++) { 
+           if(db[i][1] == staffName) { 
+               fixedSalary = parseFloat(db[i][4]) || 0; 
+               break; 
+           } 
+       } 
+   }
+   
+   var dParts = dateStr.split("/"); 
+   var daysInMonth = 30; 
+   if(dParts.length === 3) { daysInMonth = new Date(dParts[2], dParts[1], 0).getDate(); }
+   
+   var dailyRate = fixedSalary / daysInMonth; 
+   var earned = 0;
+   
+   if(status.includes("Present") || status.includes("Late Warning") || status.includes("Sunday") || status.includes("Approved")) { 
+       earned = dailyRate; 
+   } else if(status.includes("Half Day")) { 
+       earned = dailyRate / 2; 
+   }
+
+   var pData = pSheet.getDataRange().getDisplayValues(); 
+   var rowFound = -1; 
+   var totalRow = -1;
+   
+   for(var i=1; i<pData.length; i++) { 
+       if(pData[i][0] == dateStr) { rowFound = i + 1; }
+       if(pData[i][3] && pData[i][3].includes("GRAND TOTAL")) { totalRow = i + 1; }
+   }
+   
+   if(totalRow > -1) { pSheet.getRange(totalRow, 1, 1, 5).clearContent().clearFormat(); }
+
+   if(rowFound > -1 && rowFound !== totalRow) { 
+       pSheet.getRange(rowFound, 3).setValue(punchOut); 
+       pSheet.getRange(rowFound, 4).setValue(status); 
+       pSheet.getRange(rowFound, 5).setValue(Math.round(earned)); 
+   } else { 
+       pSheet.appendRow([dateStr, punchIn, punchOut, status, Math.round(earned)]); 
+   }
+
+   var lastRow = pSheet.getLastRow(); 
+   var startRow = (lastRow < 2) ? 1 : 2;
+   pSheet.getRange(lastRow + 1, 4).setValue("GRAND TOTAL ➡️").setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold").setHorizontalAlignment("right");
+   pSheet.getRange(lastRow + 1, 5).setFormula("=SUM(E" + startRow + ":E" + lastRow + ")").setBackground("#27ae60").setFontColor("white").setFontWeight("bold").setHorizontalAlignment("center");
+   pSheet.getRange(2, 1, lastRow+1, 5).setHorizontalAlignment("center").setVerticalAlignment("middle");
+}
+
+function checkMonthlyLateCount(staffName, currentMonth, currentYear) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Attendance"); 
+  if (!sheet) return 0; 
+  var lastRow = sheet.getLastRow(); 
+  if (lastRow < 2) return 0;
+  
+  var data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues(); 
+  var lateCount = 0;
+  
+  for (var i = 1; i < data.length; i++) { 
+      var rowDate = new Date(data[i][0]); 
+      if (data[i][2] == staffName && rowDate.getMonth() == currentMonth && rowDate.getFullYear() == currentYear) { 
+          if (data[i][7].toString().indexOf("Late Warning") !== -1) lateCount++; 
+      } 
+  } 
+  return lateCount; 
+}
+
+// 📧 प्रोफेशनल बटन वाला ईमेल
+function saveNewStaff(staffData) {
+  try {
+    var docUrl = "दस्तावेज़ नहीं है";
+    if (staffData.fileData && staffData.fileData !== "") {
+      var blob = Utilities.newBlob(Utilities.base64Decode(staffData.fileData), staffData.mimeType, staffData.name + "_ID_Doc");
+      var folders = DriveApp.getFoldersByName("Staff_Documents"); 
+      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Staff_Documents");
+      var file = folder.createFile(blob); 
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {} 
+      docUrl = file.getUrl();
+    }
+    
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var sheet = ss.getSheetByName("Staff_DB");
+    
+    // 🌟 3D और इमोजी हेडिंग
+    if(!sheet) {
+      sheet = ss.insertSheet("Staff_DB");
+      var staffHeaders = ["📅 Registration Date", "👤 Staff Name", "💼 Designation", "⏰ Shift Time", "💰 Fixed Salary (₹)", "🎂 Date of Birth", "📧 Email ID", "📱 Mobile No", "📌 Status", "📁 Document Link"];
+      sheet.getRange(1, 1, 1, staffHeaders.length)
+           .setValues([staffHeaders])
+           .setBackground("#2c3e50")
+           .setFontColor("#f1c40f")
+           .setFontWeight("bold")
+           .setFontSize(13)
+           .setHorizontalAlignment("center")
+           .setVerticalAlignment("middle");
+      sheet.setRowHeight(1, 40);
+      sheet.setFrozenRows(1);
+    } else { 
+      sheet.getRange(1, 10).setValue("📁 Document Link").setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold"); 
+    }
+    
+    var otp = Math.floor(1000 + Math.random() * 9000); 
+    var formattedDOB = staffData.dob;
+    
+    if(formattedDOB && formattedDOB !== "") { 
+        var dParts = formattedDOB.split("-"); 
+        if(dParts.length === 3) formattedDOB = dParts[2] + "/" + dParts[1] + "/" + dParts[0]; 
+    } else { formattedDOB = "N/A"; }
+
+    sheet.appendRow([ new Date().toLocaleDateString('en-IN'), staffData.name, staffData.designation, staffData.shiftTime, staffData.salary, formattedDOB, staffData.email, staffData.mobile, "Pending OTP - " + otp, docUrl ]);
+    sheet.getRange(sheet.getLastRow(), 1, 1, 10).setHorizontalAlignment("center");
+    
+    var agreementLink = ScriptApp.getService().getUrl() + "?page=agreement&email=" + encodeURIComponent(staffData.email);
+    
+    var emailHtml = `
+      <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #005A9C;">
+            <div style="text-align: center; padding: 30px 20px 20px 20px;">
+                <h2 style="color: #005A9C; margin: 0; font-size: 26px; font-weight: 900;">माँ अंबिका डायग्नोस्टिक सेंटर</h2>
+                <p style="color: #7f8c8d; margin: 5px 0 0 0; font-size: 12px; font-weight: bold; letter-spacing: 1px;">HRMIS PRO SYSTEM</p>
+            </div>
+            <div style="padding: 20px 30px; color: #333333; line-height: 1.6;">
+                <p style="font-size: 16px;">प्रिय <b>${staffData.name}</b>,</p>
+                <p style="font-size: 16px;">माँ अंबिका डायग्नोस्टिक सेंटर परिवार में आपका हार्दिक स्वागत है! 🎉</p>
+                <p style="font-size: 15px; color: #555;">आपका डिजिटल नियुक्ति पत्र तैयार है। कृपया नीचे दिए गए बटन पर क्लिक करके अपना पत्र पढ़ें और अपनी डिजिटल सहमति (E-Sign) दें:</p>
+                <div style="text-align: center; margin: 35px 0;">
+                    <a href="${agreementLink}" style="background-color: #27ae60; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.3); display: inline-block;">📄 जॉइनिंग के लिए क्लिक करें</a>
+                </div>
+                <div style="background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; color: #856404;">सहमति देने के लिए आपका सुरक्षित OTP है:</p>
+                    <h3 style="margin: 5px 0 0 0; color: #d35400; font-size: 28px; letter-spacing: 3px;">${otp}</h3>
+                </div>
+            </div>
+            <div style="background-color: #f8f9fa; padding: 15px; text-align: center; border-top: 1px solid #eeeeee;">
+                <p style="margin: 0; font-size: 14px; color: #333; font-weight: bold;">धन्यवाद,</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #555;">सावन पाटीदार (मैनेजर)</p>
+                <p style="margin: 5px 0 0 0; font-size: 12px; color: #999;">Maa Ambika Diagnostic Centre, Sanawad</p>
+            </div>
+        </div>
+      </div>`;
+
+    MailApp.sendEmail({ to: staffData.email, subject: "🎉 आपका नियुक्ति पत्र - माँ अंबिका डायग्नोस्टिक सेंटर", htmlBody: emailHtml });
+    MailApp.sendEmail("deepakpatidar630@gmail.com", "नया स्टाफ रजिस्ट्रेशन", staffData.name + " को सिस्टम में जोड़ दिया गया है।");
+    
+    updateSheetDashboard(); // डैशबोर्ड अपडेट
+    return "Success";
+  } catch(error) { return "Error: " + error.toString(); }
+}
+
+// 📄 प्रीमियम वॉटरमार्क और बॉर्डर वाला PDF
+function verifyStaffOTP(email, enteredOTP) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Staff_DB"); 
+  if(!sheet) return "Error: डेटाबेस नहीं मिला";
+  
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][6] == email) { 
+      var currentStatus = data[i][8].toString(); 
+      if (currentStatus.includes("Pending OTP") && currentStatus.includes(enteredOTP)) {
+         
+         sheet.getRange(i + 1, 9).setValue("Active / Agreement Signed ✅");
+         
+         var staffName = data[i][1]; 
+         var designation = data[i][2]; 
+         var shiftTime = data[i][3]; 
+         var salary = data[i][4]; 
+         var mobile = data[i][7]; 
+         var dateStr = new Date().toLocaleDateString('hi-IN');
+         
+         var pdfHtml = `
+         <div style="font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 35px; color: #2c3e50; background-color: #ffffff; max-width: 800px; margin: auto; border: 4px solid #005A9C; position: relative;">
+            <div style="position: absolute; top: 40%; left: 10%; font-size: 85px; font-weight: 900; color: rgba(0, 90, 156, 0.05); transform: rotate(-35deg); z-index: -1; white-space: nowrap; letter-spacing: 5px;">MADC SANAWAD</div>
+            <div style="text-align: center; border-bottom: 4px solid #005A9C; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #005A9C; margin: 0; font-size: 38px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">माँ अंबिका डायग्नोस्टिक सेंटर</h1>
+                <p style="color: #555; margin: 8px 0 0 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">JAWAHAR MARG, MPEB OFFICE KE PASS, SANAWAD, KHARGONE (M.P.) - 451111</p>
+                <div style="display: inline-block; background-color: #005A9C; color: #ffffff; padding: 6px 18px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-top: 15px; letter-spacing: 1px;">HRMIS PRO SYSTEM</div>
+            </div>
+            <h2 style="text-align: center; background-color: #f0f8ff; padding: 15px; border-radius: 8px; color: #005A9C; text-transform: uppercase; font-size: 22px; font-weight: 800; border: 2px solid #005A9C; margin-bottom: 30px; letter-spacing: 1px;">नियुक्ति पत्र एवं रोजगार समझौता <br><span style="font-size: 16px; color: #2c3e50;">(EMPLOYMENT AGREEMENT)</span></h2>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <tr>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; width: 25%; color: #005A9C; font-weight: bold;">दिनांक (Date):</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; width: 25%; font-weight: bold; color: #333;">${dateStr}</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; width: 25%; color: #005A9C; font-weight: bold;">स्टाफ का नाम:</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; width: 25%; font-weight: 900; color: #e74c3c; font-size: 18px;">${staffName}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; color: #005A9C; font-weight: bold;">पद (Designation):</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; font-weight: bold; color: #333;">${designation}</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; color: #005A9C; font-weight: bold;">शिफ्ट समय:</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; font-weight: bold; color: #333;">${shiftTime}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; color: #005A9C; font-weight: bold;">मासिक वेतन:</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; font-weight: 900; color: #27ae60; font-size: 18px;">₹${salary}/-</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; background-color: #f8f9fa; color: #005A9C; font-weight: bold;">मोबाइल नंबर:</td>
+                    <td style="padding: 12px 15px; border: 1px solid #bdc3c7; font-weight: bold; color: #333;">${mobile}</td>
+                </tr>
+            </table>
+            <h3 style="color: #005A9C; border-bottom: 2px solid #005A9C; padding-bottom: 8px; margin-bottom: 20px; font-size: 20px; font-weight: bold;">📌 नियम एवं शर्तें (Terms & Conditions):</h3>
+            <div style="font-size: 15px; text-align: justify; color: #34495e; line-height: 1.8;">
+                <ol style="padding-left: 20px; margin-top: 0;">
+                    <li style="margin-bottom: 12px;"><b>हाज़िरी और पंचिंग:</b> अटेंडेंस केवल सेंटर के परिसर के अंदर से और सिस्टम में 'लाइव सेल्फी व लोकेशन' के द्वारा ही मान्य होगी।</li>
+                    <li style="margin-bottom: 12px;"><b>समय की पाबंदी:</b> शिफ्ट के निर्धारित समय से अधिकतम 5 मिनट तक की देरी मान्य है। महीने में 2 बार से अधिक विलंब (Late) होने पर <b>'हाफ-डे' (Half-Day)</b> माना जाएगा।</li>
+                    <li style="margin-bottom: 12px;"><b>अवकाश और रविवार:</b> रविवार (Sunday) की ड्यूटी अनिवार्य रहेगी। बिना पूर्व सूचना या बिना अप्रूवल के अनुपस्थित (Absent) रहने पर अनुशासनात्मक कार्रवाई के तहत <b>3 दिन का वेतन</b> काटा जा सकता है।</li>
+                    <li style="margin-bottom: 12px;"><b>सुरक्षा निधि (Security Deposit):</b> कर्मचारी के वेतन से शुरुआती 3 महीनों तक, प्रति माह 10 दिन का वेतन 'सुरक्षा निधि' के रूप में जमा किया जाएगा। इस प्रकार 3 महीने में कुल <b>1 महीने का वेतन</b> सेंटर के पास सुरक्षित (Deposit) रहेगा।</li>
+                    <li style="margin-bottom: 12px;"><b>नोटिस पीरियड (Notice Period):</b> कार्य/जॉब छोड़ने से पहले <b>30 दिनों का पूर्व लिखित नोटिस</b> देना अनिवार्य होगा।</li>
+                    <li style="margin-bottom: 12px;"><b>निधि वापसी की शर्तें:</b> जमा की गई 1 महीने की 'सुरक्षा निधि' का भुगतान कर्मचारी को केवल 30 दिन का नोटिस पीरियड सफलतापूर्वक पूरा करने के उपरांत ही किया जाएगा। यदि कर्मचारी नोटिस पीरियड के नियम का उल्लंघन करके अचानक कार्य छोड़ता है, तो <b>यह डिपॉज़िट राशि ज़ब्त (Forfeit) कर ली जाएगी</b> और इसका पूर्ण उत्तरदायित्व स्वयं कर्मचारी का होगा।</li>
+                </ol>
+            </div>
+            <div style="background-color: #f0f8ff; border-left: 6px solid #005A9C; padding: 20px; margin-top: 35px; border-radius: 6px;">
+                <p style="margin: 0 0 10px 0; color: #005A9C; font-size: 18px; font-weight: 900;">✅ स्व-घोषणा (Self-Declaration)</p>
+                <p style="margin: 0; font-size: 14px; font-style: italic; color: #2c3e50; text-align: justify; line-height: 1.6;">"मैं यह स्पष्ट घोषणा करता/करती हूँ कि मैंने ऊपर लिखे गए सभी नियमों और शर्तों को ध्यानपूर्वक पढ़ और समझ लिया है। मैं बिना किसी दबाव के, पूर्ण होश-ओ-हवास में और अपनी स्वेच्छा से इन सभी नियमों को स्वीकार करता/करती हूँ। मैं सेंटर में कार्य के दौरान इन सभी नियमों का पूरी ईमानदारी से पालन करने के लिए उत्तरदायी रहूँगा/रहूँगी।"</p>
+            </div>
+            <table style="width: 100%; margin-top: 50px; font-size: 14px;">
+                <tr>
+                    <td style="width: 50%; vertical-align: bottom;">
+                        <div style="border: 2px dashed #005A9C; padding: 20px; border-radius: 8px; text-align: center; background-color: #f8f9fa; width: 85%;">
+                            <p style="margin: 0; font-size: 18px; color: #005A9C; font-weight: 900;">✍️ E-Signed by Staff</p>
+                            <p style="margin: 8px 0 0 0; font-size: 13px; color: #555;">OTP Verified: <b style="color: #e74c3c;">${enteredOTP}</b></p>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #555;">Email ID: <b>${email}</b></p>
+                            <p style="margin: 6px 0 0 0; font-size: 12px; color: #27ae60; font-weight: bold;">✓ Digitally Verified</p>
+                        </div>
+                    </td>
+                    <td style="width: 50%; text-align: right; vertical-align: bottom;">
+                        <p style="margin: 0; font-size: 18px; font-weight: bold; color: #2c3e50;">अधिकृत हस्ताक्षरकर्ता</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px; color: #555;">मैनेजर: सावन पाटीदार</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px; color: #555;">डायरेक्टर्स: महेंद्र पाटीदार, दीपक पाटीदार</p>
+                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: bold; color: #005A9C;">(Maa Ambika Diagnostic Centre)</p>
+                    </td>
+                </tr>
+            </table>
+            <div style="margin-top: 40px; border-top: 1px solid #ddd; padding-top: 15px; text-align: center;">
+                <p style="margin: 0; font-size: 11px; color: #7f8c8d; font-weight: bold;">This is a system-generated secure document via HRMIS Pro Software. No physical signature is required.</p>
+            </div>
+         </div>`;
+
+         try {
+           var blob = Utilities.newBlob(pdfHtml, MimeType.HTML).getAs(MimeType.PDF).setName("Appointment_Letter_" + staffName + ".pdf");
+           var finalEmailHtml = `
+            <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #005A9C;">
+                  <div style="padding: 30px; color: #333333; line-height: 1.6;">
+                      <p style="font-size: 16px;">प्रिय <b>${staffName}</b>,</p>
+                      <p style="font-size: 16px;">माँ अंबिका डायग्नोस्टिक सेंटर परिवार में आपका स्वागत है! 🎉</p>
+                      <p style="font-size: 15px; color: #555;">आपका डिजिटल नियुक्ति पत्र (Appointment Letter) सफलतापूर्वक वेरिफाई हो गया है और इस ईमेल के साथ संलग्न (Attached) है। कृपया इसे डाउनलोड करके सुरक्षित रखें।</p>
+                  </div>
+                  <div style="background-color: #f8f9fa; padding: 15px; text-align: center; border-top: 1px solid #eeeeee;">
+                      <p style="margin: 0; font-size: 14px; color: #333; font-weight: bold;">धन्यवाद,</p>
+                      <p style="margin: 5px 0 0 0; font-size: 14px; color: #555;">सावन पाटीदार (मैनेजर)</p>
+                      <p style="margin: 5px 0 0 0; font-size: 12px; color: #999;">Maa Ambika Diagnostic Centre, Sanawad</p>
+                  </div>
+              </div>
+            </div>`;
+           MailApp.sendEmail({ to: email, subject: "✅ आपका नियुक्ति पत्र - Maa Ambika Diagnostic Centre", htmlBody: finalEmailHtml, attachments: [blob] });
+           MailApp.sendEmail({ to: "deepakpatidar630@gmail.com", subject: "✅ एग्रीमेंट कन्फर्म (PDF संलग्न) - " + staffName, htmlBody: "स्टाफ का एग्रीमेंट साइन हो गया है।", attachments: [blob] });
+         } catch(e) { return "Error sending PDF: " + e.toString(); }
+         
+         updateSheetDashboard(); // डैशबोर्ड अपडेट
+         return "Verified";
+      }
+    }
+  } 
+  return "Invalid OTP";
+}
+
+function applyForLeave(staffName, leaveDate, reason) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var sheet = ss.getSheetByName("Leave_Requests");
+    
+    if(!sheet) {
+      sheet = ss.insertSheet("Leave_Requests");
+      var leaveHeaders = ["📅 Apply Date", "👤 Staff Name", "📆 Leave Date", "📝 Reason", "📌 Status", "💬 Director Remark"];
+      sheet.getRange(1, 1, 1, leaveHeaders.length)
+           .setValues([leaveHeaders])
+           .setBackground("#e74c3c")
+           .setFontColor("#f1c40f")
+           .setFontWeight("bold")
+           .setFontSize(13)
+           .setHorizontalAlignment("center")
+           .setVerticalAlignment("middle");
+      sheet.setRowHeight(1, 40);
+      sheet.setFrozenRows(1);
+    }
+    
+    sheet.appendRow([new Date().toLocaleDateString('en-IN'), staffName, leaveDate, reason, "Pending ⏳", ""]);
+    sheet.getRange(sheet.getLastRow(), 1, 1, 6).setHorizontalAlignment("center");
+    
+    var dParts = leaveDate.split("-"); 
+    var displayDate = leaveDate;
+    if(dParts.length === 3) displayDate = dParts[2] + "-" + dParts[1] + "-" + dParts[0];
+
+    var htmlBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><div style="background-color: #e74c3c; color: white; padding: 15px; text-align: center;"><h2 style="margin: 0;">⚠️ नई छुट्टी की रिक्वेस्ट</h2></div><div style="padding: 20px; background-color: #fdfdfd; color: #2c3e50;"><p style="font-size: 16px;">नमस्कार,</p><p style="font-size: 16px;"><b><span style="color: #2980b9;">' + staffName + '</span></b> ने <b>' + displayDate + '</b> को छुट्टी के लिए आवेदन किया है।</p><div style="background-color: #fff3cd; color: #d35400; padding: 15px; border-radius: 8px; margin: 20px 0; font-weight: bold; border-left: 5px solid #d35400;">कारण: ' + reason + '</div><p style="font-size: 14px; color: #7f8c8d;">कृपया डायरेक्टर डैशबोर्ड पर जाकर इसे Approve या Reject करें।</p><hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;"><table style="width: 100%; font-size: 14px; color: #34495e;"><tr><td style="text-align: left; vertical-align: top;"><b>मैनेजर:</b><br>सावन पाटीदार</td><td style="text-align: right; vertical-align: top;"><b>डायरेक्टर:</b><br>महेंद्र पाटीदार<br>दीपक पाटीदार</td></tr></table></div></div>';
+
+    MailApp.sendEmail({ to: "deepakpatidar630@gmail.com", subject: "⚠️ नई छुट्टी की रिक्वेस्ट: " + staffName, htmlBody: htmlBody });
+    MailApp.sendEmail({ to: "savanpatidar1558@gmail.com", subject: "⚠️ नई छुट्टी की रिक्वेस्ट: " + staffName, htmlBody: htmlBody });
+    return "Success: आपकी छुट्टी की रिक्वेस्ट भेज दी गई है!";
+  } catch(e) { return "Error: " + e.toString(); }
+}
+
+function getPendingLeaves() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Leave_Requests"); 
+  if(!sheet) return [];
+  
+  var data = sheet.getDataRange().getDisplayValues(); 
+  var pending = [];
+  for(var i=1; i<data.length; i++) { 
+      if(data[i][4] && data[i][4].toString().includes("Pending")) { 
+          pending.push({ row: i+1, dateApplied: data[i][0], name: data[i][1], leaveDate: data[i][2], reason: data[i][3] }); 
+      } 
+  } 
+  return pending;
+}
+
+function processLeave(rowNumber, status, remark, staffName) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var sheet = ss.getSheetByName("Leave_Requests");
+    
+    var finalStatus = status === 'Approve' ? "Approved ✅" : "Rejected ❌";
+    sheet.getRange(rowNumber, 5).setValue(finalStatus); 
+    sheet.getRange(rowNumber, 6).setValue(remark);
+    
+    var staffSheet = ss.getSheetByName("Staff_DB"); 
+    var staffData = staffSheet.getDataRange().getValues(); 
+    var staffEmail = "";
+    
+    for(var i=1; i<staffData.length; i++) { 
+        if(staffData[i][1] == staffName) { 
+            staffEmail = staffData[i][6]; 
+            break; 
+        } 
+    }
+    
+    if(staffEmail != "") { 
+        var statusColor = status === 'Approve' ? '#27ae60' : '#e74c3c';
+        var updateHtml = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;"><div style="background-color: '+statusColor+'; color: white; padding: 15px; text-align: center;"><h2 style="margin: 0;">📅 छुट्टी का स्टेटस अपडेट</h2></div><div style="padding: 20px; background-color: #fdfdfd; color: #2c3e50;"><p style="font-size: 16px;">नमस्कार <b>' + staffName + '</b>,</p><p style="font-size: 16px;">आपकी छुट्टी की रिक्वेस्ट का स्टेटस डायरेक्टर द्वारा अपडेट कर दिया गया है:</p><div style="padding: 15px; border-radius: 8px; margin: 20px 0; background-color: #ecf0f1;"><b>📌 स्टेटस:</b> <span style="color: '+statusColor+'; font-weight:bold;">' + finalStatus + '</span><br><br><b>💬 रिमार्क:</b> ' + (remark ? remark : "कोई नहीं") + '</div><hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;"><table style="width: 100%; font-size: 14px; color: #34495e;"><tr><td style="text-align: left; vertical-align: top;"><b>मैनेजर:</b><br>सावन पाटीदार</td><td style="text-align: right; vertical-align: top;"><b>डायरेक्टर:</b><br>महेंद्र पाटीदार<br>दीपक पाटीदार</td></tr></table></div></div>';
+        MailApp.sendEmail({ to: staffEmail, subject: "अपडेट: आपकी छुट्टी की रिक्वेस्ट " + finalStatus, htmlBody: updateHtml });
+    }
+    return "Success";
+  } catch(e) { return "Error: " + e.toString(); }
+}
+
+function saveAdvancePayment(staffName, amount, date, reason) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var sheet = ss.getSheetByName("Advance_Payments");
+    
+    if(!sheet) {
+      sheet = ss.insertSheet("Advance_Payments");
+      var headers = ["📅 Date", "👤 Staff Name", "💸 Advance Amount (₹)", "📝 Reason / Remark"];
+      sheet.getRange(1, 1, 1, headers.length)
+           .setValues([headers])
+           .setBackground("#8e44ad")
+           .setFontColor("#f1c40f")
+           .setFontWeight("bold")
+           .setFontSize(13)
+           .setHorizontalAlignment("center")
+           .setVerticalAlignment("middle");
+      sheet.setRowHeight(1, 40);
+      sheet.setFrozenRows(1);
+    }
+    
+    var data = sheet.getDataRange().getDisplayValues(); 
+    var totalRow = -1;
+    for(var i=0; i<data.length; i++) { 
+        if(data[i][1] == "GRAND TOTAL ➡️") { totalRow = i + 1; break; } 
+    }
+    if(totalRow > -1) { sheet.getRange(totalRow, 1, 1, 4).clearContent().clearFormat(); }
+    
+    sheet.appendRow([new Date(date).toLocaleDateString('en-IN'), staffName, parseFloat(amount), reason]);
+    
+    var lastRow = sheet.getLastRow(); 
+    var startRow = (lastRow < 2) ? 1 : 2;
+    
+    sheet.getRange(lastRow + 1, 2).setValue("GRAND TOTAL ➡️").setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold").setHorizontalAlignment("right");
+    sheet.getRange(lastRow + 1, 3).setFormula("=SUM(C" + startRow + ":C" + lastRow + ")").setBackground("#27ae60").setFontColor("white").setFontWeight("bold").setHorizontalAlignment("center");
+    sheet.getRange(2, 1, lastRow+1, 4).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    
+    return "Success: " + staffName + " का ₹" + amount + " का एडवांस सेव हो गया!";
+  } catch(e) { return "Error: " + e.toString(); }
+}
+
+function getReportLinks() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var ssId = ss.getId();
+  var attSheet = ss.getSheetByName("Attendance"); 
+  var attGid = attSheet ? attSheet.getSheetId() : "0";
+  var advSheet = ss.getSheetByName("Advance_Payments"); 
+  var advGid = advSheet ? advSheet.getSheetId() : "0";
+  
+  return { 
+      attendanceExcel: "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=xlsx&gid=" + attGid, 
+      attendancePdf: "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=pdf&gid=" + attGid, 
+      advanceExcel: "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=xlsx&gid=" + advGid 
+  };
+}
+
+function getMonthlySalaryData(monthYear) { 
+  try {
+    var parts = monthYear.split("-"); 
+    var targetYear = parseInt(parts[0]); 
+    var targetMonth = parseInt(parts[1]) - 1; 
+    
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var staffSheet = ss.getSheetByName("Staff_DB"); 
+    var attSheet = ss.getSheetByName("Attendance"); 
+    var advSheet = ss.getSheetByName("Advance_Payments"); 
+    var paySheet = ss.getSheetByName("Salary_Payments"); 
+    
+    if(!staffSheet || !attSheet) return {error: "डेटाबेस या हाजिरी शीट नहीं मिली!"};
+    
+    var staffData = staffSheet.getDataRange().getValues(); 
+    var activeStaff = [];
+    
+    for(var i=1; i<staffData.length; i++) { 
+        if(staffData[i][8] && staffData[i][8].toString().includes("Active")) { 
+            activeStaff.push({ name: staffData[i][1], fixedSalary: parseFloat(staffData[i][4]) || 0, email: staffData[i][6], present: 0, halfDays: 0, advances: 0, isPaid: false }); 
+        } 
+    }
+    
+    var attData = attSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<attData.length; i++) {
+       var dParts = attData[i][0].split("/");
+       if(dParts.length === 3 && parseInt(dParts[1])-1 === targetMonth && parseInt(dParts[2]) === targetYear) {
+          var sName = attData[i][2]; 
+          var status = attData[i][7].toString(); 
+          var staffObj = activeStaff.find(s => s.name === sName);
+          if(staffObj) { 
+              if(status.includes("Present") || status.includes("Late Warning") || status.includes("Sunday") || status.includes("Approved")) { staffObj.present += 1; } 
+              else if(status.includes("Half Day")) { staffObj.halfDays += 1; } 
+          }
+       }
+    }
+    
+    if(advSheet) {
+       var advData = advSheet.getDataRange().getDisplayValues();
+       for(var i=1; i<advData.length; i++) {
+         var dParts = advData[i][0].split("/");
+         if(dParts.length === 3 && parseInt(dParts[1])-1 === targetMonth && parseInt(dParts[2]) === targetYear) { 
+             var staffObj = activeStaff.find(s => s.name === advData[i][1]); 
+             if(staffObj) { staffObj.advances += (parseFloat(advData[i][2]) || 0); } 
+         }
+       }
+    }
+
+    if(paySheet) {
+       var payData = paySheet.getDataRange().getDisplayValues();
+       for(var i=1; i<payData.length; i++) { 
+           if(payData[i][1] == monthYear) { 
+               var staffObj = activeStaff.find(s => s.name === payData[i][2]); 
+               if(staffObj) staffObj.isPaid = true; 
+           } 
+       }
+    }
+    
+    var daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    var reportHTML = "<table style='width:100%; border-collapse:collapse; font-size:14px; text-align:left; background:white;'><tr style='background:#2c3e50; color:white;'><th style='padding:10px; border:1px solid #bdc3c7;'>नाम</th><th style='padding:10px; border:1px solid #bdc3c7;'>हाजिरी</th><th style='padding:10px; border:1px solid #bdc3c7;'>नेट सैलरी (Edit)</th><th style='padding:10px; border:1px solid #bdc3c7;'>ऐक्शन</th></tr>";
+    
+    activeStaff.forEach(function(staff, index) {
+       var perDay = staff.fixedSalary / daysInMonth; 
+       var payableDays = staff.present + (staff.halfDays * 0.5); 
+       var totalEarned = perDay * payableDays; 
+       var netPay = Math.round(totalEarned - staff.advances); 
+       if(netPay < 0) netPay = 0;
+       
+       var inputId = 'sal_input_' + index;
+       
+       reportHTML += "<tr><td style='padding:10px; border:1px solid #bdc3c7; font-weight:bold;'>" + staff.name + "</td><td style='padding:10px; border:1px solid #bdc3c7;'>" + payableDays + " दिन<br><span style='font-size:11px; color:#c0392b;'>(-₹" + staff.advances + " Adv)</span></td>";
+       
+       if(staff.isPaid) { 
+           reportHTML += "<td style='padding:10px; border:1px solid #bdc3c7; color:#27ae60; font-size:16px; font-weight:bold;'>₹" + netPay + "</td>";
+           reportHTML += "<td style='padding:10px; border:1px solid #bdc3c7; color:green; font-weight:bold;'>✅ Paid</td>"; 
+       } else { 
+           reportHTML += "<td style='padding:10px; border:1px solid #bdc3c7;'><div style='display:flex; align-items:center; font-weight:bold; color:#27ae60; font-size:16px;'>₹ <input type='number' id='" + inputId + "' value='" + netPay + "' style='width:70px; padding:5px; margin-left:5px; border:1px solid #3498db; border-radius:5px; font-weight:bold; color:#2c3e50; background:#e8f4f8; outline:none;'></div></td>";
+           reportHTML += "<td style='padding:10px; border:1px solid #bdc3c7;'><button onclick='payStaffSalaryUI(\"" + staff.name + "\", \"" + monthYear + "\", document.getElementById(\"" + inputId + "\").value, \"" + staff.email + "\")' style='background:#3498db; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%; box-shadow:0 2px 4px rgba(0,0,0,0.2);'>💸 Pay</button></td>"; 
+       }
+       reportHTML += "</tr>";
+    });
+    
+    reportHTML += "</table>";
+    return {success: true, html: reportHTML};
+  } catch(e) { return {error: e.toString()}; }
+}
+
+// 💰 सैलरी स्लिप जनरेट करना और नए 8-कॉलम वाली शीट में लिंक सेव करना
+function processSalaryPayment(staffName, monthYear, amount, email) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    var sheet = ss.getSheetByName("Salary_Payments");
+    
+    if(!sheet) {
+      sheet = ss.insertSheet("Salary_Payments");
+      // 🌟 3D हेडिंग: ब्रेकडाउन और सैलरी स्लिप लिंक के साथ
+      var headers = ["📅 Payment Date", "📆 Month-Year", "👤 Staff Name", "✅ Present Days", "⚠️ Half Days", "💸 Advance Deducted", "💰 Net Paid (₹)", "📄 Salary Slip Link"];
+      sheet.getRange(1, 1, 1, headers.length)
+           .setValues([headers])
+           .setBackground("#34495e")
+           .setFontColor("#f1c40f")
+           .setFontWeight("bold")
+           .setFontSize(13)
+           .setHorizontalAlignment("center")
+           .setVerticalAlignment("middle");
+      sheet.setRowHeight(1, 40);
+      sheet.setFrozenRows(1);
+    }
+    
+    var data = sheet.getDataRange().getDisplayValues(); 
+    var totalRow = -1;
+    for(var i=0; i<data.length; i++) { if(data[i][1] == "GRAND TOTAL ➡️") { totalRow = i + 1; break; } }
+    if(totalRow > -1) { sheet.getRange(totalRow, 1, 1, 8).clearContent().clearFormat(); }
+
+    var paymentDate = new Date().toLocaleDateString('en-IN');
+    var parts = monthYear.split("-"); var targetYear = parseInt(parts[0]); var targetMonth = parseInt(parts[1]) - 1;
+    var daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    
+    var staffSheet = ss.getSheetByName("Staff_DB"); var designation = "Staff"; var fixedSalary = 0;
+    if(staffSheet) {
+        var sData = staffSheet.getDataRange().getValues();
+        for(var k=1; k<sData.length; k++) { 
+            if(sData[k][1] == staffName) { designation = sData[k][2]; fixedSalary = parseFloat(sData[k][4]) || 0; break; } 
+        }
+    }
+    
+    var present = 0; var halfDays = 0; var attSheet = ss.getSheetByName("Attendance");
+    if(attSheet) {
+        var attData = attSheet.getDataRange().getDisplayValues();
+        for(var k=1; k<attData.length; k++) {
+            var dParts = attData[k][0].split("/");
+            if(dParts.length === 3 && parseInt(dParts[1])-1 === targetMonth && parseInt(dParts[2]) === targetYear && attData[k][2] === staffName) {
+                var st = attData[k][7].toString();
+                if(st.includes("Present") || st.includes("Late Warning") || st.includes("Sunday") || st.includes("Approved")) present++;
+                else if(st.includes("Half Day")) halfDays++;
+            }
+        }
+    }
+    
+    var advance = 0; var advSheet = ss.getSheetByName("Advance_Payments");
+    if(advSheet) {
+        var advData = advSheet.getDataRange().getDisplayValues();
+        for(var k=1; k<advData.length; k++) {
+            var dParts = advData[k][0].split("/");
+            if(dParts.length === 3 && parseInt(dParts[1])-1 === targetMonth && parseInt(dParts[2]) === targetYear && advData[k][1] === staffName) { advance += parseFloat(advData[k][2]) || 0; }
+        }
+    }
+    
+    var payableDays = present + (halfDays * 0.5);
+    var grossPay = parseFloat(amount) + advance; 
+    
+    var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    var displayMonthYear = monthNames[targetMonth] + " " + targetYear;
+
+    var payslipHtml = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #333; line-height: 1.6; background-color: #fff;">
+        <div style="text-align: center; border-bottom: 3px solid #1e3c72; padding-bottom: 15px; margin-bottom: 25px;">
+            <h1 style="color: #1e3c72; margin: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 1px;">माँ अंबिका डायग्नोस्टिक सेंटर</h1>
+            <p style="color: #7f8c8d; margin: 5px 0 0 0; font-size: 11px; font-weight:bold; text-transform: uppercase;">JAWAHAR MARG, MPEB OFFICE KE PASS, SANAWAD, KHARGONE (M.P.) - 451111</p>
+            <div style="margin-top: 15px;">
+               <span style="background-color: #f4f7f6; padding: 8px 20px; border-radius: 4px; color: #2c3e50; text-transform: uppercase; font-size: 16px; font-weight: bold; border: 1px solid #ddd;">PAYSLIP - ${displayMonthYear}</span>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px;">
+            <tr>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9; width: 25%;"><b>Employee Name:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; width: 25%;"><b>${staffName}</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9; width: 25%;"><b>Designation:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; width: 25%;">${designation}</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9;"><b>Payment Date:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7;">${paymentDate}</td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9;"><b>Fixed Salary:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7;">₹${fixedSalary}</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9;"><b>Total Days in Month:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7;">${daysInMonth} Days</td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f9f9f9;"><b>Payable Days:</b></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7;">${payableDays} Days</td>
+            </tr>
+        </table>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 30px;">
+            <tr style="background-color: #1e3c72; color: white;">
+                <th style="padding: 12px; border: 1px solid #1e3c72; text-align: left; width: 60%;">Earnings & Deductions</th>
+                <th style="padding: 12px; border: 1px solid #1e3c72; text-align: right; width: 40%;">Amount (₹)</th>
+            </tr>
+            <tr>
+                <td style="padding: 12px; border: 1px solid #ddd;">Gross Payout (Basic + Allowances)</td>
+                <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">₹${grossPay}</td>
+            </tr>
+            <tr style="background-color: #fdf2f2;">
+                <td style="padding: 12px; border: 1px solid #ddd; color: #c0392b;"><b>Less: Advance Payment / Deductions</b></td>
+                <td style="padding: 12px; border: 1px solid #ddd; text-align: right; color: #c0392b;"><b>- ₹${advance}</b></td>
+            </tr>
+            <tr style="background-color: #e8f8f5;">
+                <td style="padding: 15px; border: 2px solid #27ae60; font-size: 16px; font-weight: bold; color: #27ae60;">NET PAYABLE AMOUNT</td>
+                <td style="padding: 15px; border: 2px solid #27ae60; text-align: right; font-size: 20px; font-weight: bold; color: #27ae60;">₹${amount}</td>
+            </tr>
+        </table>
+
+        <table style="width: 100%; margin-top: 50px; font-size: 14px;">
+            <tr>
+                <td style="width: 50%; vertical-align: bottom;">
+                    <div style="border: 2px solid #27ae60; padding: 10px; border-radius: 5px; display: inline-block; color: #27ae60; font-weight: bold;">
+                        STATUS: PAID SUCCESSFULLY
+                    </div>
+                </td>
+                <td style="width: 50%; vertical-align: bottom; text-align: right;">
+                    <p style="margin: 0; font-weight: bold; color: #2c3e50; font-size: 16px;">Authorized Signatory</p>
+                    <p style="margin: 5px 0 0 0; color: #34495e;"><b>मैनेजर:</b> सावन पाटीदार</p>
+                    <p style="margin: 2px 0 0 0; color: #34495e;"><b>डायरेक्टर:</b> महेंद्र पाटीदार, दीपक पाटीदार</p>
+                </td>
+            </tr>
+        </table>
+        
+        <div style="text-align: center; margin-top: 40px; font-size: 11px; color: #aaa; border-top: 1px solid #eee; padding-top: 15px;">
+            This is a system-generated secure document via HRMIS Pro Software. No physical signature is required.
+        </div>
+    </div>`;
+
+    var slipUrl = "Link Not Generated";
+    var payslipBlob = Utilities.newBlob(payslipHtml, MimeType.HTML).getAs(MimeType.PDF).setName("Payslip_" + staffName + "_" + monthYear + ".pdf");
+    
+    // PDF गूगल ड्राइव में सेव करना
+    var folders = DriveApp.getFoldersByName("Maa_Ambika_Payslips"); 
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Maa_Ambika_Payslips");
+    var savedPdf = folder.createFile(payslipBlob); 
+    try { savedPdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+    slipUrl = savedPdf.getUrl();
+
+    // शीट में नया 8 कॉलम वाला डेटा सेव करना
+    sheet.appendRow([paymentDate, monthYear, staffName, present, halfDays, advance, parseFloat(amount), slipUrl]);
+    
+    var lastRow = sheet.getLastRow(); 
+    var startRow = (lastRow < 2) ? 1 : 2;
+    sheet.getRange(lastRow + 1, 2).setValue("GRAND TOTAL ➡️").setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold").setHorizontalAlignment("right");
+    sheet.getRange(lastRow + 1, 7).setFormula("=SUM(G" + startRow + ":G" + lastRow + ")").setBackground("#27ae60").setFontColor("white").setFontWeight("bold").setHorizontalAlignment("center");
+    sheet.getRange(2, 1, lastRow+1, 8).setHorizontalAlignment("center").setVerticalAlignment("middle");
+
+    if(email && email != "") {
+        var emailBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><div style="background-color: #27ae60; color: white; padding: 15px; text-align: center;"><h2 style="margin: 0;">💸 वेतन भुगतान (Salary Credited)</h2></div><div style="padding: 20px; background-color: #fdfdfd; color: #2c3e50;"><p style="font-size: 16px;">नमस्कार <b>' + staffName + '</b>,</p><p style="font-size: 16px;">आपको यह सूचित किया जाता है कि आपकी <b>' + displayMonthYear + '</b> महीने की सैलरी आपके बैंक खाते में सफलतापूर्वक ट्रांसफ़र कर दी गई है।</p><div style="background-color: #e8f8f5; color: #27ae60; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 5px solid #27ae60; text-align:center;"><p style="margin:0; font-size:14px; color:#7f8c8d; font-weight:bold;">कुल भुगतान (Net Pay)</p><h1 style="margin:10px 0 0 0; font-size:38px;">₹' + amount + '</h1><p style="margin:10px 0 0 0; font-size:12px; color:#7f8c8d;">दिनांक: ' + paymentDate + '</p></div><p style="font-size: 14px; color: #7f8c8d;"><b>नोट:</b> आपकी इस महीने की विस्तृत सैलरी स्लिप (Payslip) इस ईमेल के साथ PDF फ़ॉर्मेट में अटैच की गई है। कृपया उसे चेक करें।</p><p style="font-size: 14px; color: #7f8c8d;">माँ अंबिका परिवार के साथ आपकी मेहनत और लगन के लिए बहुत-बहुत धन्यवाद! 💐</p><hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;"><table style="width: 100%; font-size: 14px; color: #34495e;"><tr><td style="text-align: left; vertical-align: top;"><b>मैनेजर:</b><br>सावन पाटीदार</td><td style="text-align: right; vertical-align: top;"><b>डायरेक्टर:</b><br>महेंद्र पाटीदार<br>दीपक पाटीदार</td></tr></table></div></div>';
+        try { MailApp.sendEmail({to: email, subject: "✅ Salary Credited & Payslip Attached - Maa Ambika", htmlBody: emailBody, attachments: [payslipBlob]}); } catch(e){}
+    }
+
+    return "Success";
+  } catch(e) { return "Error: " + e.toString(); }
+}
+
+function getRecentPaidStaff() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); var sheet = ss.getSheetByName("Salary_Payments");
+    if (!sheet) return { month: "", names: [] };
+    var data = sheet.getDataRange().getDisplayValues(); if (data.length <= 1) return { month: "", names: [] };
+    var latestMonth = data[data.length - 1][1]; var paidNames = [];
+    for (var i = data.length - 1; i > 0; i--) { 
+        if (data[i][1] == latestMonth) { 
+            if (paidNames.indexOf(data[i][2]) === -1 && data[i][2] != "") { paidNames.push(data[i][2]); } 
+        } 
+    }
+    return { month: latestMonth, names: paidNames };
+  } catch(e) { return { month: "", names: [] }; }
+}
+
+function getEmployeeOfTheMonth() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var attSheet = ss.getSheetByName("Attendance");
+    var staffSheet = ss.getSheetByName("Staff_DB");
+    if (!attSheet || !staffSheet) return null;
+
+    var activeStaff = [];
+    var sData = staffSheet.getDataRange().getValues();
+    for(var i=1; i<sData.length; i++) { 
+        if(sData[i][8] && sData[i][8].toString().includes("Active")) { 
+            activeStaff.push({name: sData[i][1], score: 0}); 
+        } 
+    }
+
+    var now = new Date(); var targetMonth = now.getMonth() - 1; var targetYear = now.getFullYear();
+    if (targetMonth < 0) { targetMonth = 11; targetYear -= 1; }
+
+    var attData = attSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<attData.length; i++) {
+       var dParts = attData[i][0].split("/");
+       if(dParts.length === 3) {
+           var rDay = parseInt(dParts[0]); var rMon = parseInt(dParts[1]) - 1; var rYear = parseInt(dParts[2]);
+           if(rMon === targetMonth && rYear === targetYear) {
+              var sName = attData[i][2]; var status = attData[i][7].toString();
+              var staffObj = activeStaff.find(s => s.name === sName);
+              if (staffObj) {
+                 if(status.includes("Present") || status.includes("Sunday") || status.includes("Approved")) { staffObj.score += 1; }
+                 if(status.includes("Half Day")) { staffObj.score += 0.5; }
+                 if(status.includes("Late")) { staffObj.score -= 0.5; }
+              }
+           }
+       }
+    }
+    activeStaff.sort(function(a, b) { return b.score - a.score; });
+    if(activeStaff.length > 0 && activeStaff[0].score > 0) {
+       var monthNames = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"];
+       return { name: activeStaff[0].name, monthName: monthNames[targetMonth] };
+    } return null;
+  } catch(e) { return null; }
+}
+
+function getTodayBirthdays() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Staff_DB"); if(!sheet) return [];
+    var data = sheet.getDataRange().getDisplayValues(); 
+    var today = new Date(); var todayStr = String(today.getDate()).padStart(2, '0') + "/" + String(today.getMonth() + 1).padStart(2, '0');
+    var bdays = [];
+    for(var i=1; i<data.length; i++) {
+      if(data[i][8] && data[i][8].toString().includes("Active")) {
+        var dob = data[i][5] ? data[i][5].toString() : ""; 
+        if(dob.startsWith(todayStr)) { bdays.push(data[i][1]); }
+      }
+    }
+    return bdays;
+  } catch(e) { return []; }
+}
+
+function getStaffPersonalData(staffName, mobileNo) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); var staffSheet = ss.getSheetByName("Staff_DB");
+    if(!staffSheet) return {error: "डेटाबेस नहीं मिला"};
+    var data = staffSheet.getDataRange().getDisplayValues(); var matched = false; var fixedSalary = 0;
+    for(var i=1; i<data.length; i++) { 
+        if(data[i][1] == staffName && data[i][7] == mobileNo) { matched = true; fixedSalary = parseFloat(data[i][4]) || 0; break; } 
+    }
+    if(!matched) return {error: "❌ आपका मोबाइल नंबर गलत है! कृपया सही नंबर डालें।"};
+
+    var now = new Date(); var currentMonth = now.getMonth(); var currentYear = now.getFullYear();
+    var attSheet = ss.getSheetByName("Attendance"); var present = 0, halfDay = 0, late = 0;
+    if(attSheet) {
+      var attData = attSheet.getDataRange().getValues();
+      for(var i=1; i<attData.length; i++) {
+        var rowDate = new Date(attData[i][0]);
+        if(attData[i][2] == staffName && rowDate.getMonth() == currentMonth && rowDate.getFullYear() == currentYear) {
+          var status = attData[i][7].toString();
+          if(status.includes("Present") || status.includes("Sunday") || status.includes("Approved")) present++;
+          if(status.includes("Late")) { present++; late++; }
+          if(status.includes("Half Day")) halfDay++;
+        }
+      }
+    }
+
+    var advSheet = ss.getSheetByName("Advance_Payments"); var advance = 0;
+    if(advSheet) {
+      var advData = advSheet.getDataRange().getValues();
+      for(var i=1; i<advData.length; i++) {
+        var rowDate = new Date(advData[i][0]);
+        if(advData[i][1] == staffName && rowDate.getMonth() == currentMonth && rowDate.getFullYear() == currentYear) { 
+            advance += parseFloat(advData[i][2]) || 0; 
+        }
+      }
+    }
+
+    var daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    var dailyRate = fixedSalary / daysInMonth; 
+    var earned = Math.round((present + (halfDay * 0.5)) * dailyRate);
+    var netPay = earned - advance; if(netPay < 0) netPay = 0;
+    
+    return { success: true, present: present, halfDay: halfDay, late: late, advance: advance, netPay: netPay };
+  } catch(e) { return {error: e.toString()}; }
+}
+// =======================================================
+// 🚀 ONE-TIME UPGRADE: पुरानी शीट्स में नई हेडिंग और कॉलम जोड़ें
+// =======================================================
+function upgradeMySheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Staff_DB हेडिंग अपडेट
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  if(staffSheet) {
+    var staffHeaders = ["📅 Registration Date", "👤 Staff Name", "💼 Designation", "⏰ Shift Time", "💰 Fixed Salary (₹)", "🎂 Date of Birth", "📧 Email ID", "📱 Mobile No", "📌 Status", "📁 Document Link"];
+    staffSheet.getRange(1, 1, 1, staffHeaders.length).setValues([staffHeaders]).setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold").setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    staffSheet.setRowHeight(1, 40);
+  }
+
+  // 2. Attendance हेडिंग अपडेट
+  var attSheet = ss.getSheetByName("Attendance");
+  if(attSheet) {
+    var attHeaders = ["📅 Date", "📆 Day", "👤 Staff Name", "🕒 Punch In Time", "🚪 Punch Out Time", "📍 Location Status", "📸 Selfie", "📌 Status"];
+    attSheet.getRange(1, 1, 1, attHeaders.length).setValues([attHeaders]).setBackground("#2c3e50").setFontColor("#f1c40f").setFontWeight("bold").setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    attSheet.setRowHeight(1, 40);
+  }
+
+  // 3. Salary_Payments हेडिंग अपडेट (नए कॉलम के साथ)
+  var salSheet = ss.getSheetByName("Salary_Payments");
+  if(salSheet) {
+    var salHeaders = ["📅 Payment Date", "📆 Month-Year", "👤 Staff Name", "✅ Present Days", "⚠️ Half Days", "💸 Advance Deducted", "💰 Net Paid (₹)", "📄 Salary Slip Link"];
+    salSheet.getRange(1, 1, 1, salHeaders.length).setValues([salHeaders]).setBackground("#34495e").setFontColor("#f1c40f").setFontWeight("bold").setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    salSheet.setRowHeight(1, 40);
+  }
+
+  // 4. Leave_Requests हेडिंग अपडेट
+  var leaveSheet = ss.getSheetByName("Leave_Requests");
+  if(leaveSheet) {
+    var leaveHeaders = ["📅 Apply Date", "👤 Staff Name", "📆 Leave Date", "📝 Reason", "📌 Status", "💬 Director Remark"];
+    leaveSheet.getRange(1, 1, 1, leaveHeaders.length).setValues([leaveHeaders]).setBackground("#e74c3c").setFontColor("#f1c40f").setFontWeight("bold").setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    leaveSheet.setRowHeight(1, 40);
+  }
+
+  // 5. 📊 नया लाइव डैशबोर्ड जनरेट करें
+  updateSheetDashboard();
+
+  return "✅ आपकी सारी शीट्स 3D कलर हेडिंग्स और नए कॉलम के साथ अपग्रेड हो गई हैं!";
+}
+// =======================================================
+// 🚀 SUPER ADMIN ADVANCED ANALYTICS ENGINE
+// =======================================================
+function getSuperAdminAnalytics() {
+  var stats = getTodayStats();
+  var leaves = getPendingLeaves();
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  var roles = {};
+  var alerts = [];
+  var activeCount = 0;
+
+  if(staffSheet) {
+    var data = staffSheet.getDataRange().getValues();
+    for(var i=1; i<data.length; i++) {
+      var status = data[i][8] ? data[i][8].toString() : "";
+      var role = data[i][2] ? data[i][2].toString() : "Staff";
+      var name = data[i][1];
+
+      if(status.includes("Active")) {
+        activeCount++;
+        roles[role] = (roles[role] || 0) + 1;
+      } else if(status.includes("Pending OTP")) {
+        alerts.push("⚠️ " + name + " का नियुक्ति पत्र (OTP) पेंडिंग है!");
+      }
+    }
+  }
+  
+  return { 
+    stats: stats, 
+    leaves: leaves, 
+    roles: Object.keys(roles), 
+    roleCounts: Object.values(roles),
+    alerts: alerts,
+    totalActive: activeCount
+  };
+}
+// =======================================================
+// 🚀 SUPER ADMIN ADVANCED ANALYTICS & DASHBOARD FEATURES
+// =======================================================
+
+function updateSheetDashboard() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); var dash = ss.getSheetByName("📊 MAIN DASHBOARD");
+    if(!dash) {
+      dash = ss.insertSheet("📊 MAIN DASHBOARD", 0);
+      dash.getRange("A1:E20").setBackground("#f8f9fa");
+      dash.getRange("B2:D3").merge().setValue("👑 माँ अंबिका डायग्नोस्टिक सेंटर - लाइव डैशबोर्ड").setBackground("#005A9C").setFontColor("white").setFontSize(22).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+      dash.setRowHeight(2, 35); dash.setRowHeight(3, 35); dash.setColumnWidth(2, 250); dash.setColumnWidth(3, 200);
+    }
+    var staffSheet = ss.getSheetByName("Staff_DB"); var totalStaff = 0;
+    if(staffSheet) { var sData = staffSheet.getDataRange().getValues(); for(var i=1; i<sData.length; i++) { if(sData[i][8] && sData[i][8].toString().includes("Active")) totalStaff++; } }
+    var attSheet = ss.getSheetByName("Attendance"); var todayStr = new Date().toLocaleDateString('en-IN'); var presentToday = 0;
+    if(attSheet) { var aData = attSheet.getDataRange().getDisplayValues(); var pNames = []; for(var i=aData.length-1; i>0; i--) { if(aData[i][0] == todayStr && pNames.indexOf(aData[i][2]) === -1) { pNames.push(aData[i][2]); if(aData[i][7].indexOf("Absent") === -1) presentToday++; } } }
+    dash.getRange("B5").setValue("👥 कुल एक्टिव स्टाफ:").setFontWeight("bold").setFontSize(16); dash.getRange("C5").setValue(totalStaff).setFontWeight("bold").setFontSize(22).setFontColor("#2980b9").setHorizontalAlignment("center");
+    dash.getRange("B7").setValue("📅 आज उपस्थित स्टाफ:").setFontWeight("bold").setFontSize(16); dash.getRange("C7").setValue(presentToday + " / " + totalStaff).setFontWeight("bold").setFontSize(22).setFontColor("#27ae60").setHorizontalAlignment("center");
+    dash.getRange("B9").setValue("🕒 लास्ट अपडेट (Live):").setFontWeight("bold").setFontSize(14); dash.getRange("C9").setValue(new Date().toLocaleString('en-IN')).setFontColor("#e74c3c").setHorizontalAlignment("center");
+    dash.getRange("B5:C9").setBorder(true,true,true,true,false,true, "#bdc3c7", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  } catch(e) {}
+}
+
+function getSuperAdminAnalytics(selectedDateStr) {
+  var targetDate = selectedDateStr ? new Date(selectedDateStr) : new Date();
+  var targetDateFormatted = targetDate.toLocaleDateString('en-IN');
+  var targetMonth = targetDate.getMonth();
+  var targetYear = targetDate.getFullYear();
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  var attSheet = ss.getSheetByName("Attendance");
+  var advSheet = ss.getSheetByName("Advance_Payments");
+  var paySheet = ss.getSheetByName("Salary_Payments");
+
+  var activeStaff = []; var roles = {}; var alerts = []; var activeCount = 0;
+
+  if(staffSheet) {
+    var data = staffSheet.getDataRange().getValues();
+    for(var i=1; i<data.length; i++) {
+      var status = data[i][8] ? data[i][8].toString() : "";
+      var role = data[i][2] ? data[i][2].toString() : "Staff";
+      var name = data[i][1];
+      if(status.includes("Active")) {
+        activeCount++; roles[role] = (roles[role] || 0) + 1; activeStaff.push(name);
+      } else if(status.includes("Pending OTP")) {
+        alerts.push("⚠️ " + name + " का नियुक्ति पत्र (OTP) पेंडिंग है!");
+      }
+    }
+  }
+
+  var pCount = 0, lCount = 0, aCount = 0, details = [], presentNames = [];
+  if(attSheet) {
+    var aData = attSheet.getDataRange().getDisplayValues();
+    for(var i=aData.length-1; i>0; i--) {
+      if(aData[i][0] == targetDateFormatted) {
+        var name = aData[i][2]; var status = aData[i][7].toString();
+        if(presentNames.indexOf(name) === -1) {
+          presentNames.push(name); pCount++;
+          if(status.includes("Late") || status.includes("Half Day")) lCount++;
+          details.push({name: name, inTime: aData[i][3], status: status});
+        }
+      }
+    }
+  }
+  activeStaff.forEach(function(staffName) {
+    if(presentNames.indexOf(staffName) === -1) { details.push({name: staffName, inTime: "--:--", status: "Absent ❌"}); aCount++; }
+  });
+
+  var totalSalary = 0;
+  if(paySheet) {
+     var pData = paySheet.getDataRange().getValues();
+     for(var i=1; i<pData.length; i++) {
+       if(pData[i][1] != "GRAND TOTAL ➡️") {
+         var rowDate = new Date(pData[i][0]);
+         if(rowDate.getMonth() == targetMonth && rowDate.getFullYear() == targetYear) {
+            totalSalary += parseFloat(pData[i][6]) || parseFloat(pData[i][3]) || 0; 
+         }
+       }
+     }
+  }
+  var totalAdvance = 0;
+  if(advSheet) {
+     var advData = advSheet.getDataRange().getValues();
+     for(var i=1; i<advData.length; i++) {
+       if(advData[i][1] != "GRAND TOTAL ➡️") {
+         var rowDate = new Date(advData[i][0]);
+         if(rowDate.getMonth() == targetMonth && rowDate.getFullYear() == targetYear) {
+            totalAdvance += parseFloat(advData[i][2]) || 0;
+         }
+       }
+     }
+  }
+
+  return {
+    stats: { present: pCount, late: lCount, absent: aCount, list: details },
+    leaves: getPendingLeaves(),
+    roles: Object.keys(roles),
+    roleCounts: Object.values(roles),
+    alerts: alerts,
+    totalActive: activeCount,
+    finance: { salary: totalSalary, advance: totalAdvance },
+    celebration: { eom: getEmployeeOfTheMonth(), bdays: getTodayBirthdays() },
+    links: getReportLinks(),
+    currentDateStr: targetDateFormatted
+  };
+}
+
+function getEmployeeOfTheMonth() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); var attSheet = ss.getSheetByName("Attendance"); var staffSheet = ss.getSheetByName("Staff_DB");
+    if (!attSheet || !staffSheet) return null;
+    var activeStaff = []; var sData = staffSheet.getDataRange().getValues();
+    for(var i=1; i<sData.length; i++) { if(sData[i][8] && sData[i][8].toString().includes("Active")) { activeStaff.push({name: sData[i][1], score: 0}); } }
+    var now = new Date(); var targetMonth = now.getMonth() - 1; var targetYear = now.getFullYear();
+    if (targetMonth < 0) { targetMonth = 11; targetYear -= 1; }
+    var attData = attSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<attData.length; i++) {
+       var dParts = attData[i][0].split("/");
+       if(dParts.length === 3 && (parseInt(dParts[1]) - 1) === targetMonth && parseInt(dParts[2]) === targetYear) {
+          var staffObj = activeStaff.find(s => s.name === attData[i][2]);
+          if (staffObj) { var st = attData[i][7].toString(); if(st.includes("Present") || st.includes("Sunday") || st.includes("Approved")) staffObj.score += 1; else if(st.includes("Half Day")) staffObj.score += 0.5; else if(st.includes("Late")) staffObj.score -= 0.5; }
+       }
+    }
+    activeStaff.sort(function(a, b) { return b.score - a.score; });
+    if(activeStaff.length > 0 && activeStaff[0].score > 0) {
+       var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+       return { name: activeStaff[0].name, monthName: monthNames[targetMonth] };
+    } return null;
+  } catch(e) { return null; }
+}
+
+function getTodayBirthdays() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Staff_DB"); if(!sheet) return [];
+    var data = sheet.getDataRange().getDisplayValues(); var today = new Date(); var todayStr = String(today.getDate()).padStart(2, '0') + "/" + String(today.getMonth() + 1).padStart(2, '0');
+    var bdays = [];
+    for(var i=1; i<data.length; i++) { if(data[i][8] && data[i][8].toString().includes("Active")) { var dob = data[i][5] ? data[i][5].toString() : ""; if(dob.startsWith(todayStr)) { bdays.push(data[i][1]); } } } return bdays;
+  } catch(e) { return []; }
+}
+
+function getReportLinks() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); var ssId = ss.getId();
+  var attSheet = ss.getSheetByName("Attendance"); var attGid = attSheet ? attSheet.getSheetId() : "0";
+  var advSheet = ss.getSheetByName("Advance_Payments"); var advGid = advSheet ? advSheet.getSheetId() : "0";
+  return { attendanceExcel: "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=xlsx&gid=" + attGid, advanceExcel: "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=xlsx&gid=" + advGid };
+}
+// =======================================================
+// 🚀 FEATURES 2 & 3: STAFF DIGITAL LOCKER & LIVE MAP DATA
+// =======================================================
+function getMapAndLockerData(selectedDateStr) {
+  var targetDateFormatted = selectedDateStr ? new Date(selectedDateStr).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Staff Locker Data (पूरी जन्म-कुंडली)
+  var staffSheet = ss.getSheetByName("Staff_DB");
+  var locker = [];
+  if(staffSheet) {
+    var sData = staffSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<sData.length; i++) {
+      if(sData[i][8] && sData[i][8].includes("Active")) {
+        locker.push({
+          name: sData[i][1], 
+          role: sData[i][2], 
+          shift: sData[i][3], 
+          salary: sData[i][4], 
+          mobile: sData[i][7], 
+          docLink: sData[i][9]
+        });
+      }
+    }
+  }
+
+  // 2. Map Location Data (लाइव लोकेशन)
+  var attSheet = ss.getSheetByName("Attendance");
+  var locations = {};
+  if(attSheet) {
+    var aData = attSheet.getDataRange().getDisplayValues();
+    for(var i=aData.length-1; i>0; i--) {
+      if(aData[i][0] == targetDateFormatted) {
+        // नाम के हिसाब से लोकेशन सेव कर रहे हैं (Index 5 में Location होती है)
+        locations[aData[i][2]] = aData[i][5]; 
+      }
+    }
+  }
+
+  return { locker: locker, locations: locations };
+}
+
+// =======================================================
+// 🚀 NEW OVERRIDE: ONLY CCTV WALL, LOCKER & MAP DATA
+// (इसमें कोई जियो-फेंसिंग या फ्रॉड अलर्ट नहीं है)
+// =======================================================
+function getMapAndLockerData(selectedDateStr) {
+  var targetDateFormatted = selectedDateStr ? new Date(selectedDateStr).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var staffSheet = ss.getSheetByName("Staff_DB"); var locker = [];
+  if(staffSheet) {
+    var sData = staffSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<sData.length; i++) {
+      if(sData[i][8] && sData[i][8].includes("Active")) {
+        locker.push({ name: sData[i][1], role: sData[i][2], shift: sData[i][3], salary: sData[i][4], mobile: sData[i][7], docLink: sData[i][9] });
+      }
+    }
+  }
+
+  var attSheet = ss.getSheetByName("Attendance"); var locations = {}; var selfies = [];
+  if(attSheet) {
+    var aData = attSheet.getDataRange().getDisplayValues();
+    var fData = attSheet.getDataRange().getFormulas(); 
+    var processedNames = []; 
+    for(var i=aData.length-1; i>0; i--) {
+      if(aData[i][0] == targetDateFormatted) {
+        var sName = aData[i][2];
+        locations[sName] = aData[i][5]; 
+        if(processedNames.indexOf(sName) === -1) {
+            processedNames.push(sName);
+            var formula = fData[i][6];
+            var imgUrl = "https://via.placeholder.com/150?text=No+Photo";
+            if(formula && formula.toString().indexOf('IMAGE') !== -1) {
+               var match = formula.toString().match(/"(.*?)"/);
+               if(match && match[1]) imgUrl = match[1];
+            }
+            selfies.push({ name: sName, time: aData[i][3], url: imgUrl, status: aData[i][7] });
+        }
+      }
+    }
+  }
+
+  // खाली फ्रॉड लॉग भेज रहे हैं ताकि पुरानी एरर ना आए
+  return { locker: locker, locations: locations, selfies: selfies, fraudLogs: [] };
+}
+// =======================================================
+// 🚀 MAGIC OVERRIDE: CCTV SELFIE IMAGE FIX
+// (बस इसे सबसे नीचे पेस्ट कर दें, पुराना कुछ डिलीट नहीं करना है)
+// =======================================================
+function getMapAndLockerData(selectedDateStr) {
+  var targetDateFormatted = selectedDateStr ? new Date(selectedDateStr).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var staffSheet = ss.getSheetByName("Staff_DB"); var locker = [];
+  if(staffSheet) {
+    var sData = staffSheet.getDataRange().getDisplayValues();
+    for(var i=1; i<sData.length; i++) {
+      if(sData[i][8] && sData[i][8].includes("Active")) {
+        locker.push({ name: sData[i][1], role: sData[i][2], shift: sData[i][3], salary: sData[i][4], mobile: sData[i][7], docLink: sData[i][9] });
+      }
+    }
+  }
+
+  var attSheet = ss.getSheetByName("Attendance"); var locations = {}; var selfies = [];
+  if(attSheet) {
+    var aData = attSheet.getDataRange().getDisplayValues();
+    var fData = attSheet.getDataRange().getFormulas(); 
+    var processedNames = []; 
+    for(var i=aData.length-1; i>0; i--) {
+      if(aData[i][0] == targetDateFormatted) {
+        var sName = aData[i][2];
+        locations[sName] = aData[i][5]; 
+        if(processedNames.indexOf(sName) === -1) {
+            processedNames.push(sName);
+            
+            var formulaStr = fData[i][6] ? fData[i][6].toString() : "";
+            var directVal = aData[i][6] ? aData[i][6].toString() : "";
+            var imgUrl = "https://via.placeholder.com/150?text=No+Photo";
+            
+            // 🚀 फोटो फिक्स करने का मैजिक कोड (Google Drive Thumbnail API)
+            if(formulaStr.indexOf('id=') !== -1) {
+               var idMatch = formulaStr.match(/id=([a-zA-Z0-9_-]+)/);
+               if(idMatch && idMatch[1]) {
+                   imgUrl = "https://drive.google.com/thumbnail?id=" + idMatch[1] + "&sz=w500-h500";
+               }
+            } else if (formulaStr.indexOf('IMAGE') !== -1) {
+               var match = formulaStr.match(/"(.*?)"/);
+               if(match && match[1]) imgUrl = match[1];
+            } else if (directVal.indexOf("http") !== -1) {
+               imgUrl = directVal;
+            }
+
+            selfies.push({ name: sName, time: aData[i][3], url: imgUrl, status: aData[i][7] });
+        }
+      }
+    }
+  }
+
+  return { locker: locker, locations: locations, selfies: selfies, fraudLogs: [] };
+}
+// =======================================================
+// 🚀 NEW FEATURE: STAFF MONTHLY ATTENDANCE PDF GENERATOR
+// =======================================================
+function generateStaffMonthlyAttendancePDF(staffName, monthYear) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var attSheet = ss.getSheetByName("Attendance");
+    if (!attSheet) return { error: "Attendance sheet not found!" };
+
+    var data = attSheet.getDataRange().getDisplayValues();
+    var targetYear = parseInt(monthYear.split("-")[0]);
+    var targetMonth = parseInt(monthYear.split("-")[1]) - 1; // 0-indexed
+    
+    var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    var displayMonth = monthNames[targetMonth] + " " + targetYear;
+
+    var staffRecords = [];
+    var present = 0, halfDay = 0, late = 0, absent = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][2] === staffName) {
+        var dateStr = data[i][0]; 
+        var dParts = dateStr.split("/");
+        if(dParts.length === 3) {
+          var rMonth = parseInt(dParts[1]) - 1;
+          var rYear = parseInt(dParts[2]);
+          if (rMonth === targetMonth && rYear === targetYear) {
+            var status = data[i][7];
+            staffRecords.push({ date: dateStr, inTime: data[i][3], outTime: data[i][4], status: status });
+            
+            if(status.includes("Present") || status.includes("Sunday") || status.includes("Approved")) present++;
+            else if(status.includes("Half Day")) halfDay++;
+            else if(status.includes("Late")) late++; 
+            else if(status.includes("Absent")) absent++;
+          }
+        }
+      }
+    }
+
+    if (staffRecords.length === 0) {
+      return { error: "❌ इस स्टाफ का इस महीने का कोई रिकॉर्ड नहीं मिला!" };
+    }
+
+    var html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+      <div style="text-align: center; border-bottom: 3px solid #005A9C; padding-bottom: 15px; margin-bottom: 25px;">
+        <h1 style="color: #005A9C; margin: 0; text-transform: uppercase; font-size: 26px;">माँ अंबिका डायग्नोस्टिक सेंटर</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #555; font-weight: bold;">MONTHLY ATTENDANCE REPORT</p>
+      </div>
+      
+      <table style="width: 100%; margin-bottom: 20px; font-size: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+        <tr>
+          <td><b>Staff Name:</b> <span style="color:#e74c3c;">${staffName}</span></td>
+          <td style="text-align: right;"><b>Month & Year:</b> ${displayMonth}</td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; margin-bottom: 30px;">
+        <tr style="background-color: #2c3e50; color: white;">
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Date</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Punch In Time</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Punch Out Time</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Status</th>
+        </tr>
+    `;
+
+    staffRecords.forEach(r => {
+      var color = r.status.includes("Present") ? "#27ae60" : (r.status.includes("Half Day") || r.status.includes("Late") ? "#f39c12" : "#e74c3c");
+      html += `
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${r.date}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">${r.inTime}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">${r.outTime || "--:--"}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; color: ${color}; font-weight: bold;">${r.status}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </table>
+      
+      <table style="width: 100%; font-size: 14px; margin-top: 30px;">
+        <tr>
+          <td style="width: 50%;">
+             <div style="border: 2px dashed #bdc3c7; padding: 10px; border-radius: 5px; width: 80%;">
+               <b>📊 Summary:</b><br>
+               Total Present: <span style="color:#27ae60; font-weight:bold;">${present + late}</span><br>
+               Half Days: <span style="color:#f39c12; font-weight:bold;">${halfDay}</span><br>
+               Total Absent: <span style="color:#e74c3c; font-weight:bold;">${absent}</span>
+             </div>
+          </td>
+          <td style="width: 50%; text-align: right; vertical-align: bottom;">
+            <p style="margin: 0; font-weight: bold; color: #2c3e50;">Authorized Signatory</p>
+            <p style="margin: 5px 0 0 0; color: #555; font-size: 12px;">Maa Ambika Diagnostic Centre</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+    `;
+
+    var blob = Utilities.newBlob(html, MimeType.HTML).getAs(MimeType.PDF).setName("Attendance_" + staffName + "_" + monthYear + ".pdf");
+    var folders = DriveApp.getFoldersByName("Staff_Monthly_Attendance");
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Staff_Monthly_Attendance");
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return { success: true, url: file.getUrl() };
+  } catch(e) {
+    return { error: "System Error: " + e.toString() };
+  }
+}
+// =======================================================
+// 🚀 MAGIC OVERRIDE: SMART SALARY SLIP & ATTENDANCE PDF
+// (इसे बस सबसे नीचे पेस्ट कर दें, पुराना कुछ डिलीट नहीं करना है)
+// =======================================================
+function generateStaffMonthlyAttendancePDF(staffName, monthYear) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var attSheet = ss.getSheetByName("Attendance");
+    var staffSheet = ss.getSheetByName("Staff_DB");
+    if (!attSheet) return { error: "Attendance sheet not found!" };
+
+    // 1. स्टाफ की डिटेल्स (जॉइनिंग डेट और सैलरी) निकालना
+    var joiningDate = "N/A";
+    var fixedSalary = 0;
+    if (staffSheet) {
+      var sData = staffSheet.getDataRange().getDisplayValues();
+      for (var i = 1; i < sData.length; i++) {
+        if (sData[i][1] === staffName) {
+          joiningDate = sData[i][0];
+          fixedSalary = parseFloat(sData[i][4]) || 0;
+          break;
+        }
+      }
+    }
+
+    var data = attSheet.getDataRange().getDisplayValues();
+    var targetYear = parseInt(monthYear.split("-")[0]);
+    var targetMonth = parseInt(monthYear.split("-")[1]) - 1; 
+    
+    var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    var displayMonth = monthNames[targetMonth] + " " + targetYear;
+
+    // 2. उस महीने में कुल कितने दिन हैं (डेली रेट निकालने के लिए)
+    var daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    var dailyRate = fixedSalary / daysInMonth;
+
+    var staffRecords = [];
+    var present = 0, halfDay = 0, absent = 0;
+    var totalEarnedSalary = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][2] === staffName) {
+        var dateStr = data[i][0]; 
+        var dParts = dateStr.split("/");
+        if(dParts.length === 3) {
+          var rMonth = parseInt(dParts[1]) - 1;
+          var rYear = parseInt(dParts[2]);
+          
+          if (rMonth === targetMonth && rYear === targetYear) {
+            var status = data[i][7];
+            var earned = 0;
+            
+            // डेली सैलरी कैलकुलेशन का मैजिक
+            if(status.includes("Present") || status.includes("Sunday") || status.includes("Approved") || status.includes("Late Warning")) { 
+                earned = dailyRate; present++; 
+            } else if(status.includes("Half Day") || status.includes("Late")) { 
+                earned = dailyRate / 2; halfDay++; 
+            } else if(status.includes("Absent")) { 
+                earned = 0; absent++; 
+            }
+
+            var roundedEarned = Math.round(earned);
+            totalEarnedSalary += roundedEarned;
+
+            staffRecords.push({ date: dateStr, inTime: data[i][3], outTime: data[i][4], status: status, earned: roundedEarned });
+          }
+        }
+      }
+    }
+
+    if (staffRecords.length === 0) {
+      return { error: "❌ इस स्टाफ का इस महीने का कोई रिकॉर्ड नहीं मिला!" };
+    }
+
+    // 3. शानदार PDF HTML डिज़ाइन (सैलरी स्लिप के साथ)
+    var html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+      <div style="text-align: center; border-bottom: 3px solid #005A9C; padding-bottom: 15px; margin-bottom: 25px;">
+        <h1 style="color: #005A9C; margin: 0; text-transform: uppercase; font-size: 26px;">माँ अंबिका डायग्नोस्टिक सेंटर</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #555; font-weight: bold;">MONTHLY ATTENDANCE & PAYROLL REPORT</p>
+      </div>
+      
+      <table style="width: 100%; margin-bottom: 20px; font-size: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+        <tr>
+          <td style="padding: 5px;"><b>👤 Staff Name:</b> <span style="color:#e74c3c; font-weight:bold;">${staffName}</span></td>
+          <td style="padding: 5px; text-align: right;"><b>📅 Month:</b> ${displayMonth}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px;"><b>🤝 Joining Date:</b> ${joiningDate}</td>
+          <td style="padding: 5px; text-align: right;"><b>💰 Fixed Salary:</b> ₹${fixedSalary}/month</td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; margin-bottom: 30px;">
+        <tr style="background-color: #2c3e50; color: white;">
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Date</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Punch In</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Punch Out</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7;">Status</th>
+          <th style="padding: 10px; border: 1px solid #bdc3c7; background-color: #27ae60;">Earned (₹)</th>
+        </tr>
+    `;
+
+    staffRecords.forEach(r => {
+      var color = r.status.includes("Present") ? "#27ae60" : (r.status.includes("Half Day") || r.status.includes("Late") ? "#f39c12" : "#e74c3c");
+      html += `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${r.date}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${r.inTime}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${r.outTime || "--:--"}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; color: ${color}; font-weight: bold;">${r.status}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #2c3e50;">₹${r.earned}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </table>
+      
+      <table style="width: 100%; font-size: 14px; margin-top: 30px;">
+        <tr>
+          <td style="width: 50%;">
+             <div style="border: 2px dashed #bdc3c7; padding: 15px; border-radius: 5px; width: 90%; background: #fdfdfd;">
+               <b style="font-size:16px; color:#2c3e50;">📊 Attendance Summary:</b><br><br>
+               Total Present: <span style="color:#27ae60; font-weight:bold;">${present}</span><br>
+               Half Days: <span style="color:#f39c12; font-weight:bold;">${halfDay}</span><br>
+               Total Absent: <span style="color:#e74c3c; font-weight:bold;">${absent}</span><br>
+               <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+               <span style="font-size:16px;"><b>Total Earned Salary: <span style="color:#27ae60;">₹${totalEarnedSalary}</span></b></span>
+             </div>
+          </td>
+          <td style="width: 50%; text-align: right; vertical-align: bottom;">
+            <p style="margin: 0; font-weight: bold; color: #2c3e50; font-size: 16px;">Authorized Signatory</p>
+            <p style="margin: 5px 0 0 0; color: #555; font-size: 13px;">Maa Ambika Diagnostic Centre</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+    `;
+
+    var blob = Utilities.newBlob(html, MimeType.HTML).getAs(MimeType.PDF).setName("Salary_Slip_" + staffName + "_" + monthYear + ".pdf");
+    var folders = DriveApp.getFoldersByName("Staff_Monthly_Attendance");
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Staff_Monthly_Attendance");
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return { success: true, url: file.getUrl() };
+  } catch(e) {
+    return { error: "System Error: " + e.toString() };
+  }
+}
+// =======================================================
+// 🚀 NEW FEATURE: PRE-JOINING OFFER LETTER GENERATOR
+// (यह स्टाफ को हाज़िरी में ऐड नहीं करेगा, सिर्फ लेटर भेजेगा)
+// =======================================================
+function sendOfferLetter(candidateName, designation, salary, joinDate, email) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("Offer_Letters");
+    if (!sheet) {
+      sheet = ss.insertSheet("Offer_Letters");
+      var headers = ["📅 Offer Date", "👤 Candidate Name", "💼 Designation", "💰 Offered Salary", "🗓️ Expected Join Date", "📧 Email", "📌 Status"];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setBackground("#8e44ad").setFontColor("white").setFontWeight("bold").setHorizontalAlignment("center");
+      sheet.setFrozenRows(1);
+    }
+    
+    var todayStr = new Date().toLocaleDateString('en-IN');
+    var dParts = joinDate.split("-"); var displayDate = joinDate;
+    if(dParts.length === 3) displayDate = dParts[2] + "/" + dParts[1] + "/" + dParts[0];
+
+    // 📄 शानदार ऑफर लेटर PDF डिज़ाइन
+    var pdfHtml = `
+    <div style="font-family: Arial, sans-serif; padding: 40px; color: #333;">
+      <div style="text-align: center; border-bottom: 3px solid #005A9C; padding-bottom: 20px; margin-bottom: 30px;">
+        <h1 style="color: #005A9C; margin: 0; text-transform: uppercase; font-size: 28px;">माँ अंबिका डायग्नोस्टिक सेंटर</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #555; font-weight: bold;">JAWAHAR MARG, MPEB OFFICE KE PASS, SANAWAD (M.P.)</p>
+      </div>
+      
+      <div style="text-align: right; margin-bottom: 20px; font-weight: bold;">Date: ${todayStr}</div>
+      
+      <h2 style="text-align: center; color: #2c3e50; text-decoration: underline; margin-bottom: 30px;">OFFER OF EMPLOYMENT</h2>
+      
+      <p style="font-size: 16px; line-height: 1.6;">Dear <b>${candidateName}</b>,</p>
+      
+      <p style="font-size: 16px; line-height: 1.6; text-align: justify;">
+        We are extremely pleased to offer you the position of <b>${designation}</b> at <b>Maa Ambika Diagnostic Centre</b>. We were very impressed with your skills and experience, and we believe you will be a valuable addition to our team.
+      </p>
+
+      <table style="width: 100%; margin: 30px 0; font-size: 16px; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 12px; border: 1px solid #ddd; background-color: #f8f9fa; font-weight: bold; width: 40%;">Position / Designation:</td>
+          <td style="padding: 12px; border: 1px solid #ddd; color: #005A9C; font-weight: bold;">${designation}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border: 1px solid #ddd; background-color: #f8f9fa; font-weight: bold;">Offered Monthly Salary:</td>
+          <td style="padding: 12px; border: 1px solid #ddd; color: #27ae60; font-weight: bold;">₹${salary}/-</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border: 1px solid #ddd; background-color: #f8f9fa; font-weight: bold;">Expected Date of Joining:</td>
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${displayDate}</td>
+        </tr>
+      </table>
+
+      <p style="font-size: 16px; line-height: 1.6; text-align: justify;">
+        This offer is contingent upon your agreement to our standard terms and conditions, which will be provided to you in your final Appointment Letter on your date of joining. 
+      </p>
+
+      <p style="font-size: 16px; line-height: 1.6; text-align: justify;">
+        We look forward to welcoming you aboard and wish you a long and successful career with us. Please feel free to reach out if you have any questions regarding this offer.
+      </p>
+
+      <div style="margin-top: 60px;">
+        <p style="margin: 0; font-weight: bold; color: #2c3e50; font-size: 18px;">Authorized Signatory</p>
+        <p style="margin: 5px 0 0 0; color: #555; font-size: 15px;">Management / HR Department</p>
+        <p style="margin: 5px 0 0 0; color: #555; font-size: 15px; font-weight:bold;">Maa Ambika Diagnostic Centre</p>
+      </div>
+      
+      <div style="margin-top: 40px; border-top: 1px solid #ddd; padding-top: 15px; text-align: center;">
+        <p style="margin: 0; font-size: 11px; color: #7f8c8d;">This is a system-generated preliminary offer letter via HRMIS Pro Software.</p>
+      </div>
+    </div>
+    `;
+
+    var blob = Utilities.newBlob(pdfHtml, MimeType.HTML).getAs(MimeType.PDF).setName("Offer_Letter_" + candidateName + ".pdf");
+    
+    // 📧 ईमेल भेजना
+    var emailHtml = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><div style="max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;"><div style="background-color: #005A9C; color: white; padding: 20px; text-align: center;"><h2 style="margin: 0;">🎉 Job Offer from Maa Ambika</h2></div><div style="padding: 25px;"><p style="font-size: 16px;">प्रिय <b>${candidateName}</b>,</p><p style="font-size: 16px; line-height: 1.5;">हमें आपको <b>${designation}</b> के पद पर जॉब ऑफर करते हुए बहुत खुशी हो रही है!</p><p style="font-size: 15px; color: #555;">आपका आधिकारिक 'ऑफर लेटर' इस ईमेल के साथ (PDF रूप में) संलग्न (Attached) है। कृपया इसे डाउनलोड करें।</p><p style="font-size: 15px; font-weight:bold; color: #27ae60;">हम ${displayDate} को आपकी जॉइनिंग का इंतज़ार करेंगे।</p></div><div style="background-color: #f8f9fa; padding: 15px; text-align: center; border-top: 1px solid #ddd;"><p style="margin: 0; font-size: 13px; font-weight: bold;">HR Team - Maa Ambika Diagnostic Centre</p></div></div></div>`;
+    
+    MailApp.sendEmail({ to: email, subject: "🎉 Job Offer - Maa Ambika Diagnostic Centre", htmlBody: emailHtml, attachments: [blob] });
+    
+    // शीट में रिकॉर्ड सेव करना
+    sheet.appendRow([todayStr, candidateName, designation, salary, displayDate, email, "Offer Sent ✅"]);
+    return "Success: " + candidateName + " को शानदार ऑफर लेटर भेज दिया गया है!";
+  } catch(e) {
+    return "Error: " + e.toString();
+  }
+}
+
+// =========================================================================
+// 🚀 MASTER AUDITOR FIX: पूरी अटेंडेंस और पर्सनल सैलरी शीट को 100% सही करने के लिए
+// =========================================================================
+function auditAndFixAttendanceAndSalary() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var attSheet = ss.getSheetByName("Attendance");
+  var staffSheet = ss.getSheetByName("Staff_DB");
+
+  if (!attSheet || !staffSheet) return "Error: Attendance या Staff_DB शीट नहीं मिली!";
+
+  // 1. स्टाफ के असली शिफ्ट टाइम का डेटा निकालें
+  var sData = staffSheet.getDataRange().getDisplayValues();
+  var shiftMap = {};
+  for(var i=1; i<sData.length; i++) {
+      if(sData[i][1]) { shiftMap[sData[i][1]] = sData[i][3]; }
+  }
+
+  var attData = attSheet.getDataRange().getDisplayValues();
+  var lateCounter = {}; // हर महीने और हर स्टाफ का लेट रिकॉर्ड रखने का डब्बा
+  var updatedCount = 0;
+
+  // 2. पहली लाइन से आखिरी लाइन तक पूरी शीट को स्कैन करें
+  for (var i = 1; i < attData.length; i++) {
+      var dateStr = attData[i][0];
+      var staffName = attData[i][2];
+      var inTime = attData[i][3];
+      var outTime = attData[i][4];
+      var currentStatus = attData[i][7].toString();
+
+      // अगर एब्सेंट या छुट्टी है, तो उसे मत छुओ
+      if (!dateStr || !staffName || !inTime || currentStatus.includes("Absent") || currentStatus.includes("Approved")) continue;
+
+      // महीने और साल का पता लगाएं (ताकि हर महीने लेट काउंट ज़ीरो हो सके)
+      var dParts = dateStr.split("/");
+      if (dParts.length !== 3) continue;
+      var monthKey = dParts[2] + "-" + dParts[1]; // जैसे: "2026-03"
+
+      if (!lateCounter[monthKey]) lateCounter[monthKey] = {};
+      if (!lateCounter[monthKey][staffName]) lateCounter[monthKey][staffName] = 0;
+
+      var isLate = false;
+      var shiftTimeValue = shiftMap[staffName] ? shiftMap[staffName].trim() : "";
+
+      // 3. 🚀 टाइम चेक करें (क्या सच में 5 मिनट से ज़्यादा लेट था?)
+      if (shiftTimeValue && shiftTimeValue !== "") {
+          var inMatch = inTime.match(/(\d+):(\d+)\s*(AM|PM|am|pm)?/i);
+          var sMatch = shiftTimeValue.match(/(\d+):(\d+)\s*(AM|PM|am|pm)?/i);
+          
+          if (inMatch && sMatch) {
+              var inHour = parseInt(inMatch[1]); var inMin = parseInt(inMatch[2]); var inAmPm = inMatch[3] ? inMatch[3].toUpperCase() : "";
+              if (inAmPm === "PM" && inHour < 12) inHour += 12;
+              if (inAmPm === "AM" && inHour === 12) inHour = 0;
+              var inTotalMins = (inHour * 60) + inMin;
+
+              var sHour = parseInt(sMatch[1]); var sMin = parseInt(sMatch[2]); var sAmPm = sMatch[3] ? sMatch[3].toUpperCase() : "";
+              if (sAmPm === "PM" && sHour < 12) sHour += 12;
+              if (sAmPm === "AM" && sHour === 12) sHour = 0;
+              var sTotalMins = (sHour * 60) + sMin;
+
+              if (inTotalMins > (sTotalMins + 5)) { isLate = true; }
+          }
+      } else {
+          // अगर शिफ्ट टाइम खाली है
+          var inMatch = inTime.match(/(\d+):(\d+)\s*(AM|PM|am|pm)?/i);
+          if (inMatch) {
+              var inHour = parseInt(inMatch[1]); var inMin = parseInt(inMatch[2]); var inAmPm = inMatch[3] ? inMatch[3].toUpperCase() : "";
+              if (inAmPm === "PM" && inHour < 12) inHour += 12;
+              if (inAmPm === "AM" && inHour === 12) inHour = 0;
+              if (inHour > 10 || (inHour === 10 && inMin > 5)) { isLate = true; }
+          }
+      }
+
+      // 4. 🚀 2 वार्निंग और हाफ डे का मास्टर लॉजिक तय करें
+      var newStatus = currentStatus;
+      var isSunday = currentStatus.includes("Sunday");
+
+      if (isLate) {
+          lateCounter[monthKey][staffName]++; // लेट की गिनती बढ़ाएं
+          
+          if (lateCounter[monthKey][staffName] <= 2) {
+              newStatus = "Late Warning ⚠️";
+          } else {
+              newStatus = "Half Day ❌";
+          }
+      } else {
+          newStatus = "Present ✅";
+      }
+
+      if (isSunday && !newStatus.includes("Sunday")) newStatus += " (Sunday)";
+
+      // 5. 🎯 अगर पुरानी और नई स्टेटस में फर्क है, तो दोनों शीट अपडेट करें!
+      if (newStatus !== currentStatus) {
+          // मेन अटेंडेंस शीट सुधारें
+          attSheet.getRange(i + 1, 8).setValue(newStatus);
+          
+          // स्टाफ की पर्सनल टैब/शीट सुधारें (सैलरी अपने आप सही हो जाएगी)
+          updatePersonalSheet(staffName, dateStr, inTime, outTime, newStatus);
+          
+          updatedCount++;
+      }
+  }
+  
+  return "✅ ऑडिट कम्पलीट! कुल " + updatedCount + " गलतियों को मेन अटेंडेंस और पर्सनल टैब (डेली सैलरी) दोनों में 100% सही कर दिया गया है!";
+}

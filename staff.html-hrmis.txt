@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Staff Attendance - Maa Ambika</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: linear-gradient(-45deg, #89f7fe, #66a6ff, #a18cd1, #fbc2eb); background-size: 400% 400%; animation: gradientBG 15s ease infinite; color: #2c3e50; overflow-x: hidden; }
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+    .header { width: 100%; background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; text-align: center; padding: 20px 0; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 10; border-bottom: 3px solid #f1c40f;}
+    .header h2 { margin: 0; font-size: 24px; letter-spacing: 1px;}
+
+    .notice-bar { width: 100%; background: #fffde7; display: none; align-items: center; padding: 8px 10px; box-sizing: border-box; border-bottom: 2px solid #f39c12; z-index: 20; position: relative; overflow: hidden;}
+    .notice-badge { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 5px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; white-space: nowrap; margin-right: 10px; z-index: 2; flex-shrink: 0;}
+    .ticker-wrap { flex-grow: 1; overflow: hidden; white-space: nowrap; position: relative; }
+    .ticker-text { display: inline-block; white-space: nowrap; color: #d35400; font-weight: bold; font-size: 16px; padding-left: 100%; animation: ticker 25s linear infinite; }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+    .content-box { width: 92%; max-width: 450px; margin-top: 25px; margin-bottom: 30px; padding: 30px 20px; box-sizing: border-box; text-align: center; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px); border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+    
+    .datetime-box { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 20px; background: #f1f2f6; padding: 12px; border-radius: 12px; border: 1px solid #dfe4ea;}
+    select { width: 100%; padding: 15px; font-size: 18px; border: 2px solid #3498db; border-radius: 12px; font-weight: bold; color: #2c3e50; background: #ffffff; cursor: pointer; margin-bottom: 15px; box-sizing: border-box; appearance: none; text-align: center; outline: none;}
+
+    /* 📂 नया लॉकर बटन */
+    .btn-locker { width: 100%; background: linear-gradient(135deg, #8e44ad, #9b59b6); color: white; border: none; padding: 12px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(142, 68, 173, 0.4);}
+    .btn-leave { width: 100%; background: linear-gradient(135deg, #f6d365, #fda085); color: #fff; border: none; padding: 12px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 25px;}
+
+    .camera-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto 25px auto; }
+    .camera-container { width: 100%; height: 100%; border: 4px solid #fff; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #2c3e50, #34495e); position: relative; display: flex; align-items: center; justify-content: center; cursor:pointer; z-index: 2;}
+    .camera-glow { position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px; background: linear-gradient(45deg, #ff00cc, #3333ff, #00ffcc); border-radius: 50%; z-index: 1; animation: spinGlow 3s linear infinite; opacity: 0.7;}
+    @keyframes spinGlow { 100% { transform: rotate(360deg); } }
+    #previewImg { width: 100%; height: 100%; object-fit: cover; display: none; transform: scaleX(-1); }
+    #placeholderText { color: white; font-size: 20px; font-weight: bold;}
+
+    #locationStatus { font-size: 16px; font-weight: bold; padding: 12px; border-radius: 10px; margin-bottom: 25px; }
+    .loc-checking { background: #f39c12; color: white; } .loc-success { background: #00b09b; color: white; } .loc-fail { background: #e74c3c; color: white; }
+
+    .btn-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;}
+    .punch-btn { padding: 18px 10px; font-size: 18px; font-weight: 900; color: white; border: none; border-radius: 15px; cursor: pointer; }
+    .btn-in { background: linear-gradient(135deg, #11998e, #38ef7d); border-bottom: 4px solid #0a736a;}
+    .btn-out { background: linear-gradient(135deg, #eb3349, #f45c43); border-bottom: 4px solid #bd2a3a;}
+    .punch-btn:disabled { background: #bdc3c7; border-bottom: 4px solid #95a5a6; cursor: not-allowed;}
+
+    #message { font-size: 16px; font-weight: bold; margin-top: 15px; min-height: 25px; padding: 5px 10px; border-radius: 8px;}
+    .home-link { margin-top: 10px; font-size: 16px; color: #ffffff; background: #34495e; font-weight: bold; cursor: pointer; padding: 15px; border-radius: 12px; width: 100%; box-sizing: border-box; text-align: center; border: none;}
+
+    /* 🔴 मॉडल्स (पॉपअप) */
+    .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; display:none; justify-content:center; align-items:center; }
+    .modal-box { background:white; padding:25px; border-radius:20px; width:90%; max-width:400px; box-sizing:border-box; text-align:left; transform:scale(0.8); transition:0.3s transform; opacity:0;}
+    .modal-overlay.show .modal-box { transform:scale(1); opacity:1; }
+    .modal-box label { font-weight:bold; color:#2c3e50; font-size:14px; display:block; margin-bottom:8px;}
+    .modal-box input, .modal-box textarea { width:100%; padding:12px; margin-bottom:15px; border:2px solid #bdc3c7; border-radius:8px; box-sizing:border-box; font-size:16px;}
+    .modal-btn { width:100%; padding:12px; font-size:16px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; color:white; margin-bottom:10px;}
+    
+    /* लॉकर रिज़ल्ट बॉक्स */
+    .locker-result { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 15px; border: 1px solid #bdc3c7; display: none; font-size: 14px;}
+    .stat-line { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;}
+    .stat-total { display: flex; justify-content: space-between; padding-top: 10px; font-weight: bold; font-size: 18px; color: #27ae60;}
+  </style>
+</head>
+<body>
+
+  <div class="header"><h2>माँ अंबिका डायग्नोस्टिक सेंटर</h2></div>
+  
+  <div class="notice-bar" id="staffNoticeBoard">
+    <div class="notice-badge">📢 सूचना</div>
+    <div class="ticker-wrap"><div class="ticker-text" id="noticeMarquee">लोड हो रहा है...</div></div>
+  </div>
+
+  <div class="content-box">
+    <div class="datetime-box" id="dateTimeDisplay">समय लोड हो रहा है...</div>
+    
+    <select id="staffNameSelect"><option value="">⏳ नाम लोड हो रहे हैं...</option></select>
+
+    <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-locker" onclick="openLockerModal()">📂 मेरा रिकॉर्ड</button>
+        <button type="button" class="btn-leave" onclick="openLeaveModal()">📅 छुट्टी</button>
+    </div>
+
+    <div class="camera-wrapper">
+      <div class="camera-glow"></div>
+      <div class="camera-container" onclick="document.getElementById('cameraInput').click()">
+        <img id="previewImg" alt="Selfie Preview"><div id="placeholderText">📸<br>सेल्फी के लिए<br>यहाँ छुएं</div>
+      </div>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="user" style="display:none;" onchange="showPreview(event)">
+    
+    <div id="locationStatus" class="loc-checking">📍 लोकेशन चेक हो रही है...</div>
+    
+    <div class="btn-container">
+      <button class="punch-btn btn-in" id="btnIn" onclick="markAttendance('Punch In')" disabled>PUNCH IN</button>
+      <button class="punch-btn btn-out" id="btnOut" onclick="markAttendance('Punch Out')" disabled>PUNCH OUT</button>
+    </div>
+    <div id="message"></div>
+    <button class="home-link" onclick="goHome()">🏠 मेन मेनू (होम पेज) पर जाएँ</button>
+  </div>
+
+  <div class="modal-overlay" id="lockerModal">
+    <div class="modal-box">
+      <h3 style="margin-top:0; color:#8e44ad; text-align:center;">🔒 मेरा पर्सनल रिकॉर्ड</h3>
+      <p style="font-size:12px; color:#7f8c8d; text-align:center;">सुरक्षा के लिए अपना रजिस्टर्ड 10-अंकों का मोबाइल नंबर डालें</p>
+      
+      <input type="tel" id="lockerMobile" placeholder="मोबाइल नंबर दर्ज़ करें" maxlength="10">
+      
+      <button type="button" class="modal-btn" id="btnUnlockLocker" onclick="unlockLocker()" style="background: linear-gradient(135deg, #8e44ad, #9b59b6);">🔓 रिकॉर्ड खोलें</button>
+      
+      <div class="locker-result" id="lockerDataBox">
+          <div class="stat-line"><span>हाज़िरी (Present):</span> <span id="lckPresent">0</span></div>
+          <div class="stat-line"><span>हाफ-डे (Half Day):</span> <span id="lckHalf">0</span></div>
+          <div class="stat-line"><span>लेट वॉर्निंग (Late):</span> <span id="lckLate">0</span></div>
+          <div class="stat-line"><span>एडवांस लिया (-):</span> <span id="lckAdvance" style="color:#c0392b;">₹0</span></div>
+          <div class="stat-total"><span>अनुमानित नेट सैलरी:</span> <span id="lckNetPay">₹0</span></div>
+      </div>
+
+      <button type="button" class="modal-btn" onclick="closeLockerModal()" style="background: #95a5a6; margin-top:15px;">❌ बंद करें</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="leaveModal">
+    <div class="modal-box">
+      <h3 style="margin-top:0; color:#2c3e50; text-align:center;">📅 छुट्टी का आवेदन</h3>
+      <label>तारीख (Date):</label><input type="date" id="leaveDate">
+      <label>कारण (Reason):</label><textarea id="leaveReason" rows="3" placeholder="कारण लिखें..."></textarea>
+      <button type="button" class="modal-btn" id="submitLeaveBtn" onclick="submitLeaveRequest()" style="background: linear-gradient(135deg, #11998e, #38ef7d);">✔️ सबमिट करें</button>
+      <button type="button" class="modal-btn" onclick="closeLeaveModal()" style="background: linear-gradient(135deg, #eb3349, #f45c43);">❌ रद्द करें</button>
+      <div id="leaveMessage" style="text-align:center; margin-top:10px; font-weight:bold;"></div>
+    </div>
+  </div>
+
+  <script>
+    var appUrl = ""; google.script.run.withSuccessHandler(function(url) { appUrl = url; }).getScriptUrl();
+    function goHome() { if(appUrl) { document.body.style.opacity = "0.2"; window.top.location.href = appUrl; } }
+
+    google.script.run.withSuccessHandler(function(notice) {
+       google.script.run.withSuccessHandler(function(bdays) {
+           var finalNotice = "";
+           if(bdays && bdays.length > 0) {
+               finalNotice += " 🎂 माँ अंबिका परिवार की ओर से " + bdays.join(", ") + " को जन्मदिन की ढेरों बधाइयाँ! 🎉  |  ";
+               var duration = 5 * 1000; var animationEnd = Date.now() + duration; var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 2000 };
+               function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+               var interval = setInterval(function() {
+                 var timeLeft = animationEnd - Date.now(); if (timeLeft <= 0) { return clearInterval(interval); }
+                 var particleCount = 50 * (timeLeft / duration);
+                 confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                 confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+               }, 250);
+           }
+           if(notice && notice.trim() !== "") { finalNotice += notice; }
+           if(finalNotice !== "") { document.getElementById('staffNoticeBoard').style.display = "flex"; document.getElementById('noticeMarquee').innerText = finalNotice; }
+       }).getTodayBirthdays();
+    }).getNotice();
+
+    google.script.run.withSuccessHandler(function(names) {
+      var select = document.getElementById("staffNameSelect");
+      if(names.length === 0) select.innerHTML = '<option value="">❌ कोई एक्टिव स्टाफ नहीं है</option>';
+      else { select.innerHTML = '<option value="">-- अपना नाम चुनें --</option>'; names.forEach(function(name) { select.innerHTML += '<option value="' + name + '">' + name + '</option>'; }); }
+    }).getActiveStaffList();
+
+    function updateTime() { const now = new Date(); document.getElementById('dateTimeDisplay').innerText = `${now.toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'short' })} | ${now.toLocaleTimeString('en-IN', { hour12: true })}`; }
+    setInterval(updateTime, 1000); updateTime();
+
+    var isLocVerified = false; var isPhotoTaken = false; var capturedImageData = "";
+    function showPreview(event) {
+      var file = event.target.files[0];
+      if (file) {
+        var reader = new FileReader(); reader.onload = function(e) {
+          var img = new Image(); img.onload = function() {
+            var canvas = document.createElement("canvas"); var ctx = canvas.getContext("2d");
+            var MAX_WIDTH = 500; var MAX_HEIGHT = 500; var width = img.width; var height = img.height;
+            if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+            canvas.width = width; canvas.height = height; ctx.drawImage(img, 0, 0, width, height);
+            capturedImageData = canvas.toDataURL("image/jpeg", 0.6);
+            document.getElementById('previewImg').src = capturedImageData; document.getElementById('previewImg').style.display = 'block'; document.getElementById('placeholderText').style.display = 'none';
+            isPhotoTaken = true; checkEnableButtons();
+          }; img.src = e.target.result;
+        }; reader.readAsDataURL(file);
+      }
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        userLocation = position.coords.latitude + "," + position.coords.longitude;
+        document.getElementById('locationStatus').className = "loc-success"; document.getElementById('locationStatus').innerText = "📍 Location Verified ✅";
+        isLocVerified = true; checkEnableButtons();
+      }, function() { document.getElementById('locationStatus').className = "loc-fail"; document.getElementById('locationStatus').innerText = "❌ लोकेशन नहीं मिली!"; });
+    }
+
+    function checkEnableButtons() { if (isLocVerified && isPhotoTaken) { document.getElementById('btnIn').disabled = false; document.getElementById('btnOut').disabled = false; } }
+
+    function markAttendance(type) {
+      var staffName = document.getElementById("staffNameSelect").value; if (!staffName) { alert("⚠️ लिस्ट से अपना नाम चुनें!"); return; }
+      document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
+      document.getElementById('message').innerText = "डेटा सेव हो रहा है... ⏳"; document.getElementById('message').style.color = "#2980b9"; 
+      google.script.run.withSuccessHandler(function(response) {
+          document.getElementById('message').innerText = response; 
+          if(response.includes("Success")) { document.getElementById('message').style.color = "#27ae60"; } else { document.getElementById('message').style.color = "#c0392b"; }
+          setTimeout(() => { 
+            document.getElementById('message').innerText = ""; document.getElementById('previewImg').style.display = 'none'; document.getElementById('previewImg').src = "";
+            document.getElementById('placeholderText').style.display = 'block'; isPhotoTaken = false; capturedImageData = ""; document.getElementById('staffNameSelect').value = ""; 
+            document.getElementById('btnIn').disabled = true; document.getElementById('btnOut').disabled = true;
+          }, 4000); 
+      }).processAttendance(staffName, type, userLocation, capturedImageData);
+    }
+
+    /* 📂 लॉकर कंट्रोल */
+    function openLockerModal() { 
+        var staffName = document.getElementById("staffNameSelect").value; if (!staffName) { alert("⚠️ पहले अपना नाम चुनें!"); return; } 
+        var modal = document.getElementById('lockerModal'); modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10);
+        document.getElementById('lockerDataBox').style.display = 'none'; document.getElementById('lockerMobile').value = "";
+    }
+    function closeLockerModal() { var modal = document.getElementById('lockerModal'); modal.classList.remove('show'); setTimeout(() => modal.style.display = 'none', 300); }
+    
+    function unlockLocker() {
+        var staffName = document.getElementById("staffNameSelect").value;
+        var mobile = document.getElementById("lockerMobile").value;
+        if(mobile.length < 10) { alert("⚠️ कृपया 10 अंकों का सही मोबाइल नंबर डालें!"); return; }
+        
+        var btn = document.getElementById("btnUnlockLocker"); btn.innerText = "⏳ खोजा जा रहा है..."; btn.disabled = true;
+        
+        google.script.run.withSuccessHandler(function(res) {
+            btn.innerText = "🔓 रिकॉर्ड खोलें"; btn.disabled = false;
+            if(res.error) { alert(res.error); return; }
+            
+            document.getElementById('lckPresent').innerText = res.present + " दिन";
+            document.getElementById('lckHalf').innerText = res.halfDay + " दिन";
+            document.getElementById('lckLate').innerText = res.late + " बार";
+            document.getElementById('lckAdvance').innerText = "₹" + res.advance;
+            document.getElementById('lckNetPay').innerText = "₹" + res.netPay;
+            
+            document.getElementById('lockerDataBox').style.display = 'block';
+        }).getStaffPersonalData(staffName, mobile);
+    }
+
+    /* 🔴 छुट्टी कंट्रोल */
+    function openLeaveModal() { var staffName = document.getElementById("staffNameSelect").value; if (!staffName) { alert("⚠️ पहले अपना नाम चुनें!"); return; } var modal = document.getElementById('leaveModal'); modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10); }
+    function closeLeaveModal() { var modal = document.getElementById('leaveModal'); modal.classList.remove('show'); setTimeout(() => modal.style.display = 'none', 300); document.getElementById('leaveMessage').innerText = ""; }
+    function submitLeaveRequest() {
+      var staffName = document.getElementById("staffNameSelect").value; var leaveDate = document.getElementById("leaveDate").value; var reason = document.getElementById("leaveReason").value;
+      if(!leaveDate || !reason) { alert("⚠️ तारीख और कारण भरें!"); return; }
+      document.getElementById('submitLeaveBtn').innerText = "⏳..."; document.getElementById('submitLeaveBtn').disabled = true;
+      google.script.run.withSuccessHandler(function(response) {
+        document.getElementById('leaveMessage').innerText = response; document.getElementById('leaveMessage').style.color = response.includes("Success") ? "green" : "red";
+        setTimeout(closeLeaveModal, 3000); document.getElementById('submitLeaveBtn').innerText = "✔️ सबमिट करें"; document.getElementById('submitLeaveBtn').disabled = false;
+        document.getElementById('leaveDate').value = ""; document.getElementById('leaveReason').value = "";
+      }).applyForLeave(staffName, leaveDate, reason);
+    }
+  </script>
+</body>
+</html>

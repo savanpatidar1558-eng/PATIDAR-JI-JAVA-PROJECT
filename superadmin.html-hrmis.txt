@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Super Admin | Maa Ambika</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <style>
+    :root { --primary: #005A9C; --secondary: #1e3c72; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #2c3e50; --light: #f0f4f8; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--light); margin: 0; padding: 0; color: #333; overflow-x: hidden;}
+    
+    .top-header { background: linear-gradient(135deg, var(--secondary), var(--primary)); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-bottom: 4px solid var(--warning); flex-wrap: wrap; gap: 10px;}
+    .top-header h1 { margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase; }
+    .top-header p { margin: 4px 0 0 0; color: var(--warning); font-weight: bold; font-size: 13px;}
+    
+    .filter-box { background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.4);}
+    .filter-box input { padding: 6px; border-radius: 4px; border: none; font-weight: bold; outline: none;}
+    
+    .container { padding: 15px; max-width: 1400px; margin: auto; }
+    .grid { display: grid; gap: 15px; margin-bottom: 15px; }
+    .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .col-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    
+    .card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; box-shadow: 0 6px 15px rgba(0,0,0,0.05); transition: 0.3s; border-top: 4px solid transparent; border: 1px solid #e1e8ed;}
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+    
+    .blue { border-top-color: #3498db; } .green { border-top-color: var(--success); } .red { border-top-color: var(--danger); } .orange { border-top-color: var(--warning); } .purple { border-top-color: #9b59b6; } .dark { border-top-color: var(--dark); }
+    
+    .kpi-title { color: #7f8c8d; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0; }
+    .kpi-val { font-size: 35px; font-weight: 900; margin: 8px 0 0 0; color: var(--dark); }
+    .section-title { font-size: 16px; color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 0; font-weight: 800;}
+    
+    /* 📸 CCTV Selfie Grid */
+    .selfie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; max-height: 350px; overflow-y: auto; padding-right: 5px; margin-top: 15px;}
+    .selfie-card { background: #000; border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid #2c3e50;}
+    .selfie-card img { width: 100%; height: 160px; object-fit: cover; display: block; opacity: 0.85; transition: 0.3s;}
+    .selfie-card:hover img { opacity: 1; transform: scale(1.05);}
+    .selfie-card .info { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,0.9)); color: white; padding: 10px 8px 5px 8px; font-size: 11px; box-sizing: border-box;}
+    .selfie-card .info b { color: #f1c40f; display: block; font-size: 13px; margin-bottom: 2px;}
+    .live-dot { width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; display: inline-block; animation: blink 1s infinite; position: absolute; top: 8px; right: 8px; box-shadow: 0 0 8px #e74c3c;}
+    @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0;} 100% {opacity: 1;} }
+
+    /* 🗂️ Staff Locker CSS */
+    .locker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 15px; max-height: 400px; overflow-y: auto; padding-right: 5px;}
+    .locker-card { background: #fdfdfd; border: 1px solid #ddd; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative;}
+    .avatar { width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; margin: 0 auto 10px auto; box-shadow: 0 4px 8px rgba(0,0,0,0.2);}
+    .locker-card h4 { margin: 0; font-size: 16px; color: var(--dark); font-weight: 900;}
+    .locker-card p { margin: 5px 0; font-size: 13px; color: #555; font-weight: bold;}
+    .doc-btn { background: #8e44ad; color: white; padding: 6px 12px; border-radius: 5px; text-decoration: none; font-size: 12px; display: inline-block; margin-top: 10px; font-weight: bold;}
+    
+    /* 📍 Map CSS */
+    .map-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(231, 76, 60, 0.4);}
+    
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; min-width: 350px;}
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background-color: #f8f9fa; color: var(--dark); font-weight: bold; text-transform: uppercase; font-size: 12px;}
+    
+    .btn { padding: 8px 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; transition: 0.2s;}
+    .btn-approve { background: var(--success); } .btn-reject { background: var(--danger); }
+    .btn-primary { background: var(--primary); width: 100%; margin-top: 10px; padding: 10px;}
+    
+    #loader { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; font-size: 18px; font-weight: bold; color: var(--primary); flex-direction: column;}
+    .spinner { border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;}
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    select, input[type="month"] { padding: 10px; border-radius: 5px; border: 1px solid #ccc; outline: none; font-size: 14px;}
+  </style>
+</head>
+<body>
+
+  <div id="loader"><div class="spinner"></div><span id="loader-text">Loading Dashboard...</span></div>
+
+  <div class="top-header">
+    <div>
+      <h1>👑 Super Admin</h1>
+      <p>Maa Ambika - Dashboard & CCTV</p>
+    </div>
+    <div class="filter-box">
+      <span>📅 Time Travel:</span>
+      <input type="date" id="dateFilter" onchange="loadDashboardData()">
+    </div>
+  </div>
+
+  <div class="container">
+    
+    <div class="grid kpi-grid">
+      <div class="card blue"><p class="kpi-title">👥 एक्टिव स्टाफ</p><h2 class="kpi-val color-blue" id="kpiTotal">-</h2></div>
+      <div class="card green"><p class="kpi-title">✅ उपस्थित</p><h2 class="kpi-val color-green" id="kpiPresent">-</h2></div>
+      <div class="card red"><p class="kpi-title">❌ अनुपस्थित</p><h2 class="kpi-val color-red" id="kpiAbsent">-</h2></div>
+      <div class="card orange"><p class="kpi-title">⏳ पेंडिंग लीव</p><h2 class="kpi-val color-orange" id="kpiLeaves">-</h2></div>
+    </div>
+
+    <div class="grid col-2">
+      <div class="card purple" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <p class="kpi-title">💰 इस महीने बँटी सैलरी</p>
+          <h2 class="kpi-val" style="color:#8e44ad;" id="kpiSalary">-</h2>
+        </div>
+        <div style="font-size: 50px; opacity: 0.2;">💳</div>
+      </div>
+      <div class="card red" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <p class="kpi-title">💸 इस महीने दिया एडवांस</p>
+          <h2 class="kpi-val" style="color:#c0392b;" id="kpiAdvance">-</h2>
+        </div>
+        <div style="font-size: 50px; opacity: 0.2;">📉</div>
+      </div>
+    </div>
+
+    <div class="card dark" style="margin-bottom: 15px; background: #1a1a1a; border-color: #333;">
+      <h3 class="section-title" style="color: white; border-bottom-color: #333; display:flex; justify-content:space-between; align-items:center;">
+        📸 Live CCTV Selfie Wall 
+        <span style="font-size:11px; color:#e74c3c; background: rgba(231,76,60,0.2); padding: 4px 10px; border-radius: 15px; display: flex; align-items: center; gap: 5px; font-weight:bold;">
+          <div class="live-dot" style="position:static;"></div> LIVE MONITORING
+        </span>
+      </h3>
+      <div class="selfie-grid" id="selfieContainer"></div>
+    </div>
+
+    <div class="grid col-2">
+      <div class="card purple">
+        <h3 class="section-title">📍 आज की हाज़िरी + Live Map</h3>
+        <div style="max-height: 250px; overflow-y: auto;">
+          <table>
+            <thead><tr><th>स्टाफ</th><th>इन-टाइम / मैप</th><th>स्टेटस</th></tr></thead>
+            <tbody id="attTableBody"><tr><td colspan="3" style="text-align: center;">डेटा लोड हो रहा है...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="card orange">
+        <h3 class="section-title">📅 पेंडिंग लीव अप्रूवल</h3>
+        <div style="overflow-x:auto;">
+          <table><thead><tr><th>डिटेल</th><th>तारीख/कारण</th><th>ऐक्शन</th></tr></thead><tbody id="leaveTableBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid col-2">
+      <div class="card dark">
+        <h3 class="section-title">🗂️ Staff Digital Locker</h3>
+        <div class="locker-grid" id="lockerContainer"></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        
+        <div class="card green">
+          <h3 class="section-title">📑 मंथली हाज़िरी रिपोर्ट (PDF)</h3>
+          <p style="font-size:12px; color:#555; margin-bottom:10px;">स्टाफ को हार्ड कॉपी देने के लिए PDF जनरेट करें:</p>
+          <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <select id="pdfStaffSelect" style="width: 55%;"><option value=''>स्टाफ चुनें...</option></select>
+            <input type="month" id="pdfMonthSelect" style="width: 45%;">
+          </div>
+          <button class="btn btn-primary" style="background:#27ae60;" onclick="downloadMonthlyPDF()">📥 PDF जनरेट करें</button>
+        </div>
+
+        <div class="card blue">
+          <h3 class="section-title">📢 ब्रॉडकास्ट (Send Live Notice)</h3>
+          <input type="text" id="noticeMsg" placeholder="सभी स्टाफ के लिए मैसेज टाइप करें..." style="width: 90%; margin-bottom:10px;">
+          <button class="btn btn-primary" onclick="publishNotice()">🚀 SEND NOTICE</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById('dateFilter').valueAsDate = new Date();
+      
+      // Set current month for PDF generator
+      let now = new Date();
+      let monthStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0');
+      document.getElementById('pdfMonthSelect').value = monthStr;
+
+      loadDashboardData();
+    });
+
+    function loadDashboardData() {
+      document.getElementById('loader').style.display = 'flex';
+      var selectedDate = document.getElementById('dateFilter').value;
+      
+      google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withSuccessHandler(function(extraData) {
+          document.getElementById('loader').style.display = 'none';
+          
+          // KPI & Finance
+          document.getElementById('kpiTotal').innerText = res.totalActive;
+          document.getElementById('kpiPresent').innerText = res.stats.present;
+          document.getElementById('kpiAbsent').innerText = res.stats.absent;
+          document.getElementById('kpiLeaves').innerText = res.leaves.length;
+          if(res.finance) {
+            document.getElementById('kpiSalary').innerText = "₹" + res.finance.salary;
+            document.getElementById('kpiAdvance').innerText = "₹" + res.finance.advance;
+          }
+
+          // 📸 CCTV
+          let selfieHtml = "";
+          if(extraData.selfies && extraData.selfies.length > 0) {
+              extraData.selfies.forEach(s => {
+                  selfieHtml += `<div class="selfie-card"><div class="live-dot"></div><img src="${s.url}" alt="Selfie" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'"><div class="info"><b>${s.name}</b>🕒 ${s.time}</div></div>`;
+              });
+          } else { selfieHtml = `<div style="color:#888; grid-column: 1 / -1; text-align:center; padding: 20px;">अभी तक कैमरे में कोई डाटा नहीं आया है</div>`; }
+          document.getElementById('selfieContainer').innerHTML = selfieHtml;
+
+          // 🗂️ Locker & PDF Staff Dropdown
+          let lockerHtml = "";
+          let staffOptions = "<option value=''>स्टाफ चुनें...</option>";
+          
+          if(extraData.locker && extraData.locker.length > 0) {
+            extraData.locker.forEach(staff => {
+              staffOptions += `<option value="${staff.name}">${staff.name}</option>`;
+              let firstLetter = staff.name.charAt(0).toUpperCase();
+              let docBtn = staff.docLink && staff.docLink.includes("http") ? `<a href="${staff.docLink}" target="_blank" class="doc-btn">📄 View Document</a>` : `<span style="color:#e74c3c; font-size:11px; display:block; margin-top:10px;">❌ No Document</span>`;
+              lockerHtml += `<div class="locker-card"><div class="avatar">${firstLetter}</div><h4>${staff.name}</h4><p style="color:var(--primary);">${staff.role}</p><p>📱 ${staff.mobile}</p><p>💰 ₹${staff.salary}</p>${docBtn}</div>`;
+            });
+          }
+          document.getElementById('lockerContainer').innerHTML = lockerHtml;
+          document.getElementById('pdfStaffSelect').innerHTML = staffOptions;
+
+          // 📍 Maps
+          let attHtml = "";
+          res.stats.list.forEach(s => {
+            let color = s.status.includes("Present") ? "#27ae60" : (s.status.includes("Half Day") || s.status.includes("Late") ? "#f39c12" : "#e74c3c");
+            let locString = extraData.locations[s.name];
+            let mapBtn = (locString && locString !== "" && s.inTime !== "--:--") ? `<br><a href="https://maps.google.com/?q=$${encodeURIComponent(locString)}" target="_blank" class="map-btn">📍 View Map</a>` : "";
+            attHtml += `<tr><td><b>${s.name}</b></td><td>${s.inTime} ${mapBtn}</td><td style="color:${color}; font-weight:bold;">${s.status}</td></tr>`;
+          });
+          document.getElementById('attTableBody').innerHTML = attHtml || `<tr><td colspan="3" style="text-align:center;">आज कोई डेटा नहीं है</td></tr>`;
+
+          // Leaves
+          let leaveHtml = "";
+          if(res.leaves.length > 0) {
+            res.leaves.forEach(l => { leaveHtml += `<tr><td><b>${l.name}</b></td><td><span style="color:#27ae60;">${l.leaveDate}</span><br><small>${l.reason}</small></td><td><button class="btn btn-approve" onclick="handleLeave(${l.row}, 'Approve', '${l.name}')">✅</button> <button class="btn btn-reject" onclick="handleLeave(${l.row}, 'Reject', '${l.name}')">❌</button></td></tr>`; });
+          } else { leaveHtml = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#888;">कोई पेंडिंग रिक्वेस्ट नहीं 🎉</td></tr>`; }
+          document.getElementById('leaveTableBody').innerHTML = leaveHtml;
+
+        }).getMapAndLockerData(selectedDate);
+      }).getSuperAdminAnalytics(selectedDate);
+    }
+
+    // 📑 PDF Generator Function
+    function downloadMonthlyPDF() {
+      let staff = document.getElementById('pdfStaffSelect').value;
+      let month = document.getElementById('pdfMonthSelect').value;
+      
+      if(!staff || !month) return alert("❌ कृपया स्टाफ का नाम और महीना चुनें!");
+      
+      document.getElementById('loader-text').innerText = "PDF जनरेट हो रहा है... (इसमें 5-10 सेकंड लग सकते हैं)";
+      document.getElementById('loader').style.display = 'flex';
+      
+      google.script.run.withSuccessHandler(function(res) {
+        document.getElementById('loader').style.display = 'none';
+        if(res.error) return alert(res.error);
+        window.open(res.url, "_blank");
+      }).generateStaffMonthlyAttendancePDF(staff, month);
+    }
+
+    function handleLeave(row, action, name) {
+      let actionText = action === 'Approve' ? 'मंज़ूर (Approve)' : 'रद्द (Reject)';
+      let remark = prompt(`आप ${name} की छुट्टी ${actionText} कर रहे हैं। \nरिमार्क (Remark):`, "OK");
+      if(remark !== null) {
+        document.getElementById('loader-text').innerText = `प्रोसेसिंग...`;
+        document.getElementById('loader').style.display = 'flex';
+        google.script.run.withSuccessHandler(function() {
+          alert(`✅ छुट्टी ${actionText} हो गई!`); loadDashboardData(); 
+        }).processLeave(row, action, remark, name);
+      }
+    }
+
+    function publishNotice() {
+      var msg = document.getElementById("noticeMsg").value;
+      if(!msg) return alert("❌ कुछ मैसेज लिखें!");
+      google.script.run.withSuccessHandler(function(res) {
+        alert(res); document.getElementById("noticeMsg").value = "";
+      }).saveNotice(msg);
+    }
+  </script>
+</body>
+</html>

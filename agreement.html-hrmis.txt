@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Digital Agreement - Maa Ambika</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .agreement-box { background: white; width: 100%; max-width: 600px; padding: 25px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-top: 6px solid #1e3c72; box-sizing: border-box; }
+    .header { text-align: center; border-bottom: 2px solid #ecf0f1; padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2 { color: #1e3c72; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;}
+    .address-line { color: #7f8c8d; margin: 8px 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;}
+    .doc-title { color: #2980b9; margin: 10px 0 0 0; font-size: 16px; font-weight: bold; background: #e8f4f8; display: inline-block; padding: 5px 15px; border-radius: 20px;}
+    .rules { font-size: 14px; color: #34495e; line-height: 1.6; text-align: justify; }
+    .rules li { margin-bottom: 12px; }
+    .declaration { background: #e8f8f5; border-left: 5px solid #27ae60; padding: 15px; font-size: 13px; font-style: italic; margin-top: 20px; color: #2c3e50; border-radius: 4px;}
+    .otp-section { margin-top: 30px; text-align: center; padding: 20px; background: #fdfdfd; border: 2px dashed #bdc3c7; border-radius: 10px; }
+    input[type="number"] { width: 80%; padding: 12px; font-size: 24px; text-align: center; letter-spacing: 10px; border: 2px solid #3498db; border-radius: 8px; margin-bottom: 15px; outline: none; background: #fff;}
+    input[type="number"]:focus { border-color: #27ae60; box-shadow: 0 0 10px rgba(39,174,96,0.2);}
+    .btn-sign { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); transition: 0.2s;}
+    .btn-sign:active { transform: scale(0.98); }
+    .btn-sign:disabled { background: #bdc3c7; cursor: not-allowed; box-shadow: none; transform: none;}
+  </style>
+</head>
+<body>
+
+  <div class="agreement-box">
+    <div class="header">
+      <h2>माँ अंबिका डायग्नोस्टिक सेंटर</h2>
+      <p class="address-line">JAWAHAR MARG, MPEB OFFICE KE PASS, SANAWAD, KHARGONE (M.P.) - 451111</p>
+      <div class="doc-title">नियुक्ति पत्र एवं रोजगार समझौता</div>
+    </div>
+
+    <div class="rules">
+      <h3 style="color: #c0392b; margin-top: 0; font-size: 18px; border-bottom: 2px dashed #c0392b; display: inline-block; padding-bottom: 3px;">नियम एवं शर्तें:</h3>
+      <ol style="padding-left: 20px; margin: 10px 0 0 0;">
+        <li><b>हाज़िरी और पंचिंग:</b> अटेंडेंस केवल सेंटर के परिसर के अंदर से और सिस्टम में 'लाइव सेल्फी व लोकेशन' के द्वारा ही मान्य होगी।</li>
+        <li><b>समय की पाबंदी:</b> शिफ्ट के निर्धारित समय से अधिकतम 5 मिनट तक की देरी मान्य है। महीने में 2 बार से अधिक विलंब (Late) होने पर 'हाफ-डे' (Half-Day) माना जाएगा।</li>
+        <li><b>अवकाश और रविवार:</b> रविवार (Sunday) की ड्यूटी अनिवार्य रहेगी। बिना पूर्व सूचना या बिना अप्रूवल के अनुपस्थित (Absent) रहने पर अनुशासनात्मक कार्रवाई के तहत 3 दिन का वेतन काटा जा सकता है।</li>
+        <li><b>सुरक्षा निधि (Security Deposit):</b> कर्मचारी के वेतन से शुरुआती 3 महीनों तक, प्रति माह 10 दिन का वेतन 'सुरक्षा निधि' के रूप में जमा किया जाएगा। इस प्रकार 3 महीने में कुल 1 महीने का वेतन सेंटर के पास सुरक्षित (Deposit) रहेगा।</li>
+        <li><b>नोटिस पीरियड (Notice Period):</b> कार्य/जॉब छोड़ने से पहले 30 दिनों का पूर्व लिखित नोटिस देना अनिवार्य होगा।</li>
+        <li><b>निधि वापसी की शर्तें:</b> जमा की गई 1 महीने की 'सुरक्षा निधि' का भुगतान कर्मचारी को केवल 30 दिन का नोटिस पीरियड सफलतापूर्वक पूरा करने के उपरांत ही किया जाएगा। यदि कर्मचारी नोटिस पीरियड के नियम का उल्लंघन करके अचानक कार्य छोड़ता है, तो यह डिपॉज़िट राशि ज़ब्त (Forfeit) कर ली जाएगी और इसका पूर्ण उत्तरदायित्व स्वयं कर्मचारी का होगा।</li>
+      </ol>
+    </div>
+
+    <div class="declaration">
+      <b style="color:#27ae60; font-size:15px; display:block; margin-bottom:5px;">✅ स्व-घोषणा (Self-Declaration)</b>
+      "मैं यह स्पष्ट घोषणा करता/करती हूँ कि मैंने ऊपर लिखे गए सभी नियमों और शर्तों को ध्यानपूर्वक पढ़ और समझ लिया है। मैं बिना किसी दबाव के, पूर्ण होश-ओ-हवास में और अपनी स्वेच्छा से इन सभी नियमों को स्वीकार करता/करती हूँ। मैं सेंटर में कार्य के दौरान इन सभी नियमों का पूरी ईमानदारी से पालन करने के लिए उत्तरदायी रहूँगा/रहूँगी।"
+    </div>
+
+    <div class="otp-section">
+      <h4 style="margin-top: 0; color: #2980b9; font-size: 18px;">✍️ डिजिटल हस्ताक्षर (E-Sign)</h4>
+      <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">सहमति देने के लिए अपनी ईमेल आईडी (<b><?= staffEmail ?></b>) पर आया हुआ 4-अंकों का OTP यहाँ दर्ज़ करें:</p>
+      
+      <input type="hidden" id="staffEmail" value="<?= staffEmail ?>">
+      <input type="number" id="otpInput" placeholder="••••" oninput="if(this.value.length > 4) this.value = this.value.slice(0,4);">
+      
+      <button class="btn-sign" id="btnVerify" onclick="verifyOTP()">मैं सहमत हूँ (I Agree) - Submit OTP</button>
+      <div id="message" style="margin-top: 15px; font-weight: bold; font-size: 15px;"></div>
+    </div>
+  </div>
+
+  <script>
+    function verifyOTP() {
+      var email = document.getElementById("staffEmail").value;
+      var otp = document.getElementById("otpInput").value;
+      
+      if(otp.length < 4) { alert("⚠️ कृपया 4-अंकों का सही OTP डालें!"); return; }
+      
+      var btn = document.getElementById("btnVerify");
+      btn.innerText = "डेटा सेव हो रहा है... ⏳";
+      btn.disabled = true;
+      
+      google.script.run.withSuccessHandler(function(response) {
+        var msgDiv = document.getElementById("message");
+        if(response === "Verified") {
+          msgDiv.style.color = "#27ae60";
+          msgDiv.innerHTML = "✅ एग्रीमेंट सफलतापूर्वक साइन हो गया है!<br><span style='font-size:12px; color:#7f8c8d;'>(PDF आपके ईमेल पर भेज दी गई है)</span>";
+          btn.style.display = "none";
+          document.getElementById("otpInput").style.display = "none";
+        } else {
+          msgDiv.style.color = "#c0392b";
+          msgDiv.innerHTML = "❌ गलत OTP! कृपया ईमेल चेक करके सही OTP डालें।";
+          btn.innerText = "मैं सहमत हूँ (I Agree) - Submit OTP";
+          btn.disabled = false;
+        }
+      }).verifyStaffOTP(email, otp);
+    }
+  </script>
+</body>
+</html>
